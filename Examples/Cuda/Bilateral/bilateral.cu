@@ -69,7 +69,7 @@ __global__ void bilateral(const ${data_type} * __restrict__ src, ${data_type} * 
         if constexpr (is_float) {
             dst[y * width + x] = num / den;
         } else {
-            dst[y * width + x] = __double2uint_rn(num / den * peak);
+            dst[y * width + x] = __float2int_rn(num / den * peak);
         }
     } else {
         float value {};
@@ -105,7 +105,7 @@ __global__ void bilateral(const ${data_type} * __restrict__ src, ${data_type} * 
         if constexpr (is_float) {
             dst[y * width + x] = num / den;
         } else {
-            dst[y * width + x] = __double2uint_rn(num / den * peak);
+            dst[y * width + x] = __float2int_rn(num / den * peak);
         }
     }
 }
