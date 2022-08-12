@@ -4,13 +4,13 @@ This module and original idea is by cid-chan (Sarah <cid@cid-chan.moe>)
 
 from __future__ import annotations
 
-from typing import Any, Callable, Coroutine, Generator, Generic, TypeVar
+from typing import Any, Callable, Coroutine, Generator, Generic, Iterable, TypeVar
+
 import vapoursynth as vs
 
 from .exceptions import FormattedException
 
 core = vs.core
-
 
 UNWRAP_NAME = '__vspyplugin_unwrap'
 
@@ -89,6 +89,24 @@ class GatherRequests(Generic[T], FrameRequest):
 
 async def get_frame(clip: vs.VideoNode, frame_no: int) -> vs.VideoFrame:
     return await SingleFrameRequest(clip, frame_no)
+
+
+async def get_frames(
+    clip: vs.VideoNode, frame_no: int, shifts: int | tuple[int, int] | Iterable[int] = (-1, 1)
+) -> tuple[vs.VideoFrame, ...]:
+    if isinstance(shifts, int):
+        shifts = (-shifts, shifts)
+
+    if isinstance(shifts, tuple):
+        start, stop = shifts
+        step = -1 if stop < start else 1
+        shifts = range(start, stop + step, step)
+
+    coroutines = (
+        get_frame(clip, frame_no + shift) for shift in shifts
+    )
+
+    return await gather(*coroutines)
 
 
 async def gather(*coroutines: AnyCoroutine[T]) -> tuple[T, ...]:
