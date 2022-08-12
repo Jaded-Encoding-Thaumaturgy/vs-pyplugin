@@ -151,15 +151,9 @@ class PyPlugin(Generic[FD_T]):
 
         self.fd = self.get_filter_data(**kwargs)
 
-    def invoke(self, **kwargs: Any) -> vs.VideoNode:
-        assert self.ref_clip.format
+        n_clips = len(self.clips)
 
         class_name = self.__class__.__name__
-
-        if kwargs:
-            self.fd = self.get_filter_data(**kwargs)
-
-        n_clips = len(self.clips)
 
         if n_clips < self.min_clips or (self.max_clips > 0 and n_clips > self.max_clips):
             max_clips = 'inf' if self.max_clips == -1 else self.max_clips
@@ -171,6 +165,11 @@ class PyPlugin(Generic[FD_T]):
             raise ValueError(
                 f'{class_name}: You must have at least two clips to omit the first clip!'
             )
+
+    def invoke(self) -> vs.VideoNode:
+        assert self.ref_clip.format
+
+        n_clips = len(self.clips)
 
         if self.out_format.num_planes > 1 or self.out_format.subsampling_w or self.out_format.subsampling_h:
             function = self.eval_single_clip_per_plane if n_clips == 1 else self.eval_multi_clips_per_plane
