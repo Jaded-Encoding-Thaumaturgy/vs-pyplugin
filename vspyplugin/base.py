@@ -124,24 +124,22 @@ class PyPlugin(Generic[FD_T]):
         return clip
 
     def __init__(
-        self, clips: vs.VideoNode | list[vs.VideoNode], ref_clip: vs.VideoNode | None = None, **kwargs: Any
+        self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None, **kwargs: Any
     ) -> None:
-        clips = clips if isinstance(clips, list) else [clips]
+        assert ref_clip.format
 
         if self.filter_data is None or isinstance(self.filter_data, TypeVar):
             self.filter_data = GenericFilterData  # type: ignore
 
-        rclip = ref_clip or clips[0]
-        assert rclip.format
+        self.out_format = ref_clip.format  # type: ignore
 
-        self.out_format = rclip.format  # type: ignore
+        self.ref_clip = self.norm_clip(ref_clip)
 
-        self.clips = [self.norm_clip(clip) for clip in clips]
-        self.ref_clip = self.norm_clip(ref_clip) if ref_clip else self.clips[0]
+        self.clips = [self.norm_clip(clip) for clip in clips] if clips else []
 
         self.fd = self.filter_data(**kwargs)
 
-        n_clips = len(self.clips)
+        n_clips = 1 + len(self.clips)
 
         class_name = self.__class__.__name__
 

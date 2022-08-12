@@ -16,13 +16,9 @@ try:
     from numpy import dtype
     from numpy.core._multiarray_umath import array as nparray  # type: ignore
     from numpy.core._multiarray_umath import copyto as npcopyto
-    from numpy.typing import NDArray
 
     class PyPluginNumpy(PyPlugin[FD_T]):
         backend = this_backend
-
-        def process(self, src: NDArray[Any] | list[NDArray[Any]], dst: NDArray[Any], n: int) -> None:
-            raise NotImplementedError
 
         def to_host(self, f: vs.VideoFrame, plane: int, copy: bool = False) -> Any:
             return nparray(f[plane], copy=copy)
@@ -41,7 +37,7 @@ try:
         def invoke(self) -> vs.VideoNode:
             assert self.ref_clip.format
 
-            n_clips = len(self.clips)
+            n_clips = 1 + len(self.clips)
 
             function: Any
 
@@ -78,7 +74,7 @@ try:
 
                         return fout
 
-            return self.ref_clip.std.ModifyFrame(self.clips, function)
+            return self.ref_clip.std.ModifyFrame((self.ref_clip, *self.clips), function)
 
     this_backend.set_available(True)
 except BaseException as e:

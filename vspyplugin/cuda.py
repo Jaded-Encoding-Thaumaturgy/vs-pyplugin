@@ -9,7 +9,7 @@ from typing import Any, Literal, NamedTuple, Type, TypeVar, cast
 import vapoursynth as vs
 
 from .base import FD_T, GenericFilterData, PyBackend, PyPluginUnavailableBackend
-from .utils import get_c_dtype_short
+from .utils import get_c_dtype_long
 
 __all__ = [
     'PyPluginCuda',
@@ -125,10 +125,10 @@ try:
             return string
 
         def __init__(
-            self, clips: vs.VideoNode | list[vs.VideoNode], ref_clip: vs.VideoNode | None = None,
+            self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None,
             kernel_kwargs: dict[str, Any] | None = None, **kwargs: Any
         ) -> None:
-            super().__init__(clips, ref_clip, **kwargs)
+            super().__init__(ref_clip, clips, **kwargs)
             assert self.ref_clip.format
 
             if kernel_kwargs is None:
@@ -166,7 +166,7 @@ try:
                 width=self.ref_clip.width, height=self.ref_clip.height,
                 use_shared_memory=self.use_shared_memory,
                 block_x=block_x, block_y=block_y,
-                data_type=get_c_dtype_short(self.ref_clip),
+                data_type=get_c_dtype_long(self.ref_clip),
                 **self.fd
             )
 

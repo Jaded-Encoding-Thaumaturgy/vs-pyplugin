@@ -81,9 +81,10 @@ try:
             )
 
         def __init__(
-            self, clips: vs.VideoNode | list[vs.VideoNode], ref_clip: vs.VideoNode | None = None, **kwargs: Any
+            self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None, **kwargs: Any
         ) -> None:
-            super().__init__(clips, ref_clip, **kwargs)
+            super().__init__(ref_clip, clips, **kwargs)
+
             assert self.ref_clip.format
 
             if self.cuda_num_streams != 0 and self.cuda_num_streams < 2:
@@ -98,7 +99,7 @@ try:
             self.cuda_streams = [cp.cuda.Stream(non_blocking=True) for _ in range(self.cuda_num_streams)]
             self.cuda_is_101 = 10010 <= cp.cuda.runtime.runtimeGetVersion()
 
-            src_arrays = [self._alloc_arrays(clip) for clip in self.clips]
+            src_arrays = [self._alloc_arrays(clip) for clip in (self.ref_clip, *self.clips)]
             self.src_arrays = [
                 [array[plane] for array in src_arrays] for plane in range(self.ref_clip.format.num_planes)
             ]
@@ -111,7 +112,7 @@ try:
         def invoke(self) -> vs.VideoNode:
             assert self.ref_clip.format
 
-            n_clips = len(self.clips)
+            n_clips = 1 + len(self.clips)
 
             function: Any
 
@@ -160,7 +161,7 @@ try:
 
                         return fout
 
-            return self.ref_clip.std.ModifyFrame(self.clips, function)
+            return self.ref_clip.std.ModifyFrame((self.ref_clip, *self.clips), function)
 
     this_backend.set_available(True)
 except BaseException as e:
