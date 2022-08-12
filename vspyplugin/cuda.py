@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from string import Template
-from typing import Any, Callable, Literal, NamedTuple, Type, TypeVar, cast
+from typing import Any, Literal, NamedTuple, Type, TypeVar, cast
 
 import vapoursynth as vs
 
@@ -109,6 +109,9 @@ try:
             self, clips: vs.VideoNode | list[vs.VideoNode], ref_clip: vs.VideoNode | None = None,
             kernel_kwargs: dict[str, Any] | None = None, **kwargs: Any
         ) -> None:
+            super().__init__(clips, ref_clip, **kwargs)
+            assert self.ref_clip.format
+
             if kernel_kwargs is None:
                 kernel_kwargs = {}
 
@@ -137,51 +140,6 @@ try:
 
             self.cuda_kernel_code = cuda_kernel_code
             self.kernel_kwargs = kernel_kwargs
-
-            super().__init__(clips, ref_clip, **kwargs)
-
-        @lru_cache
-        def normalize_kernel_size(
-            self, blk_size_w: int, blk_size_h: int, width: int, height: int
-        ) -> tuple[int, int]:
-            return ((width + blk_size_w - 1) // blk_size_w, (height + blk_size_h - 1) // blk_size_h)
-
-        @lru_cache
-        def calc_shared_mem(self, blk_size_w: int, blk_size_h: int, dtype_size: int) -> int:
-            return blk_size_w * blk_size_h * dtype_size
-
-        def get_kernel_size(self) -> tuple[int, int]:
-            if isinstance(self.kernel_size, tuple):
-                block_x, block_y = self.kernel_size
-            else:
-                block_x = block_y = self.kernel_size
-
-            return block_x, block_y
-
-        def get_data_type(self, clip: vs.VideoNode) -> str:
-            assert clip.format
-
-            bps = clip.format.bytes_per_sample
-
-            if clip.format.sample_type is vs.FLOAT:
-                if bps == 2:
-                    return 'half'
-
-                return 'float'
-
-            if bps == 1:
-                return 'unsigned char'
-
-            if bps == 2:
-                return 'unsigned short'
-
-            if bps == 4:
-                return 'unsigned int'
-
-            raise RuntimeError
-
-        def _post_invoke(self, function: Callable[..., vs.VideoFrame]) -> vs.VideoNode:
-            assert self.ref_clip.format
 
             block_x, block_y = self.get_kernel_size()
 
@@ -260,7 +218,45 @@ try:
                 ) for name, function in self.kernel_functions.items()
             })
 
-            return super()._post_invoke(function)
+        @lru_cache
+        def normalize_kernel_size(
+            self, blk_size_w: int, blk_size_h: int, width: int, height: int
+        ) -> tuple[int, int]:
+            return ((width + blk_size_w - 1) // blk_size_w, (height + blk_size_h - 1) // blk_size_h)
+
+        @lru_cache
+        def calc_shared_mem(self, blk_size_w: int, blk_size_h: int, dtype_size: int) -> int:
+            return blk_size_w * blk_size_h * dtype_size
+
+        def get_kernel_size(self) -> tuple[int, int]:
+            if isinstance(self.kernel_size, tuple):
+                block_x, block_y = self.kernel_size
+            else:
+                block_x = block_y = self.kernel_size
+
+            return block_x, block_y
+
+        def get_data_type(self, clip: vs.VideoNode) -> str:
+            assert clip.format
+
+            bps = clip.format.bytes_per_sample
+
+            if clip.format.sample_type is vs.FLOAT:
+                if bps == 2:
+                    return 'half'
+
+                return 'float'
+
+            if bps == 1:
+                return 'unsigned char'
+
+            if bps == 2:
+                return 'unsigned short'
+
+            if bps == 4:
+                return 'unsigned int'
+
+            raise RuntimeError
 
     this_backend.set_available(True)
 except BaseException as e:

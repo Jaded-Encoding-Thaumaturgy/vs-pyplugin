@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from enum import IntEnum
-from typing import Any, Callable, Generic, Literal, Type, TypeVar, cast, overload
+from typing import Any, Generic, Literal, Type, TypeVar, overload
 
 import vapoursynth as vs
 
@@ -152,6 +152,8 @@ class PyPlugin(Generic[FD_T]):
         self.fd = self.get_filter_data(**kwargs)
 
     def invoke(self, **kwargs: Any) -> vs.VideoNode:
+        assert self.ref_clip.format
+
         class_name = self.__class__.__name__
 
         if kwargs:
@@ -175,12 +177,7 @@ class PyPlugin(Generic[FD_T]):
         else:
             function = self.eval_single_clip_one_plane if n_clips == 1 else self.eval_multi_clips_one_plane
 
-        return self._post_invoke(cast(Callable[..., vs.VideoFrame], function))
-
-    def _post_invoke(self, function: Callable[..., vs.VideoFrame]) -> vs.VideoNode:
-        assert self.ref_clip.format
-
-        out = self.ref_clip.std.ModifyFrame(self.clips, function)
+        out = self.ref_clip.std.ModifyFrame(self.clips, function)  # type: ignore
 
         if self.out_format.id != self.ref_clip.format.id:
             return out.resize.Bicubic(format=self.out_format.id, dither_type='none')
