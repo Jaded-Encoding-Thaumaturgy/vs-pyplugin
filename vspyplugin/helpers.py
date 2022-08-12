@@ -19,7 +19,7 @@ class FrameRequest:
     def build_frame_eval(
         self, clip: vs.VideoNode, frame_no: int, continuation: Callable[[Any], vs.VideoNode]
     ) -> vs.VideoNode:
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 FrameCoroutine = Coroutine[FrameRequest, Any, vs.VideoFrame]
@@ -62,11 +62,11 @@ class SingleFrameRequest(FrameRequest):
         )
 
 
-class Gather(FrameRequest):
-    def __init__(self, coros: list[FrameCoroutine]) -> None:
-        self.coros = coros
+class GatherRequests(Generic[T], FrameRequest):
+    def __init__(self, coroutines: tuple[AnyCoroutine[T], ...]) -> None:
+        self.coroutines = coroutines
 
-    def __await__(self) -> Generator[Gather, None, tuple[Any, ...]]:
+    def __await__(self) -> Generator[GatherRequests[T], None, tuple[T, ...]]:
         return (yield self)  # type: ignore
 
     def build_frame_eval(
@@ -74,7 +74,7 @@ class Gather(FrameRequest):
     ) -> vs.VideoNode:
         wrapped = [
             _coro2node_wrapped(clip, frame_no, coro)
-            for coro in self.coros
+            for coro in self.coroutines
         ]
 
         def _apply(n: int, f: list[vs.VideoFrame]) -> vs.VideoNode:
@@ -91,8 +91,8 @@ async def get_frame(clip: vs.VideoNode, frame_no: int) -> vs.VideoFrame:
     return await SingleFrameRequest(clip, frame_no)
 
 
-async def gather(*coros: AnyCoroutine[Any]) -> tuple[Any, ...]:
-    return await Gather(list(coros))
+async def gather(*coroutines: AnyCoroutine[T]) -> tuple[T, ...]:
+    return await GatherRequests(coroutines)
 
 
 def _unwrap(frame: vs.VideoFrame, atom: Atom[Any]) -> Any:
@@ -102,8 +102,10 @@ def _unwrap(frame: vs.VideoFrame, atom: Atom[Any]) -> Any:
         return frame
 
 
-def _coro2node_wrapped(base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[T]) -> tuple[vs.VideoNode, Atom[T]]:
-    atom = Atom[Any]()
+def _coro2node_wrapped(
+    base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[T]
+) -> tuple[vs.VideoNode, Atom[T]]:
+    atom = Atom[T]()
     return _coro2node(base_clip, frameno, coro, atom), atom  # type: ignore
 
 
@@ -122,6 +124,7 @@ def _coro2node(
     def _continue(value: Any) -> vs.VideoNode:
         if wrap:
             wrap.unset()
+
         try:
             next_request = coro.send(value)
         except StopIteration as e:
