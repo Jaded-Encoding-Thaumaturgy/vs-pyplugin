@@ -96,6 +96,9 @@ class PyPlugin(Generic[FD_T]):
     def from_host(self, src: Any, dst: vs.VideoFrame, plane: int, copy: bool = False) -> Any:
         ...
 
+    def process(self, src: Any, dst: Any, n: int) -> None:
+        raise NotImplementedError
+
     def __class_getitem__(cls, fdata: Type[FD_T] | None = None) -> Type[PyPlugin[FD_T]]:
         if fdata is None:
             fdata = GenericFilterData  # type: ignore

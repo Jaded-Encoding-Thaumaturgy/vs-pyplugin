@@ -20,10 +20,7 @@ try:
     class PyPluginNumpy(PyPlugin[FD_T]):
         backend = this_backend
 
-        def process_single(self, src: NDArray[Any], dst: NDArray[Any], n: int) -> None:
-            raise NotImplementedError
-
-        def process_multi(self, srcs: list[NDArray[Any]], dst: NDArray[Any], n: int) -> None:
+        def process(self, src: NDArray[Any] | list[NDArray[Any]], dst: NDArray[Any], n: int) -> None:
             raise NotImplementedError
 
         def to_host(self, f: vs.VideoFrame, plane: int, copy: bool = False) -> Any:
@@ -36,14 +33,14 @@ try:
             fout = f.copy()
 
             for p in range(fout.format.num_planes):
-                self.process_single(self.to_host(f, p), self.to_host(fout, p), n)
+                self.process(self.to_host(f, p), self.to_host(fout, p), n)
 
             return fout
 
         def eval_single_clip_one_plane(self, f: vs.VideoFrame, n: int) -> vs.VideoFrame:
             fout = f.copy()
 
-            self.process_single(self.to_host(f, 0), self.to_host(fout, 0), n)
+            self.process(self.to_host(f, 0), self.to_host(fout, 0), n)
 
             return fout
 
@@ -52,7 +49,7 @@ try:
             f = f[self.omit_first_clip:]
 
             for p in range(fout.format.num_planes):
-                self.process_multi([self.to_host(frame, p) for frame in f], self.to_host(fout, p), n)
+                self.process([self.to_host(frame, p) for frame in f], self.to_host(fout, p), n)
 
             return fout
 
@@ -60,7 +57,7 @@ try:
             fout = f[0].copy()
             f = f[self.omit_first_clip:]
 
-            self.process_multi([self.to_host(frame, 0) for frame in f], self.to_host(fout, 0), n)
+            self.process([self.to_host(frame, 0) for frame in f], self.to_host(fout, 0), n)
 
             return fout
 

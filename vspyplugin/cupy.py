@@ -67,7 +67,7 @@ try:
 
             for p in range(fout.format.num_planes):
                 self.to_device(f, 0, p)
-                self.process_single(self.src_arrays[p][0], self.out_arrays[p], n)
+                self.process(self.src_arrays[p][0], self.out_arrays[p], n)
                 self.from_device(fout, p)
 
             return fout
@@ -76,7 +76,7 @@ try:
             fout = f.copy()
 
             self.to_device(f, 0, 0)
-            self.process_single(self.src_arrays[0][0], self.out_arrays[0], n)
+            self.process(self.src_arrays[0][0], self.out_arrays[0], n)
             self.from_device(fout, 0)
 
             return fout
@@ -89,7 +89,7 @@ try:
                 for i, frame in enumerate(f):
                     self.to_device(frame, i, p)
 
-                self.process_multi(self.src_arrays[p], self.out_arrays[p], n)
+                self.process(self.src_arrays[p], self.out_arrays[p], n)
                 self.from_device(fout, p)
 
             return fout
@@ -101,7 +101,7 @@ try:
             for i, frame in enumerate(f):
                 self.to_device(frame, i, 0)
 
-            self.process_multi(self.src_arrays[0], self.out_arrays[0], n)
+            self.process(self.src_arrays[0], self.out_arrays[0], n)
             self.from_device(fout, 0)
 
             return fout
