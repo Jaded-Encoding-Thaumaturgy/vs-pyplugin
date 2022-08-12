@@ -2,11 +2,12 @@
 This module and original idea is by cid-chan (Sarah <cid@cid-chan.moe>)
 """
 
-import textwrap
 import typing as t
-import traceback
 
 import vapoursynth as vs
+
+from .exceptions import FormattedException
+
 core = vs.core
 
 
@@ -43,10 +44,6 @@ def frame2clip(frame: vs.VideoFrame, /) -> vs.VideoNode:
     )
     frame = frame.copy()
     return bc.std.ModifyFrame([bc], lambda n, f: frame.copy())
-
-
-class WrappedException(Exception):
-    pass
 
 
 class FrameRequest:
@@ -142,9 +139,7 @@ def _coro2node(
                 return base_clip.std.BlankClip().std.SetFrameProp(UNWRAP_NAME, intval=True)
 
         except Exception as e:
-            formatted = "".join(traceback.format_exception(type(e), e, e.__traceback__))
-            content = f"Something went wrong.\n{textwrap.indent(formatted, '| ')}"
-            raise WrappedException(content)
+            raise FormattedException(e)
         else:
             return next_request.build_frame_eval(
                 base_clip,
