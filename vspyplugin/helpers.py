@@ -27,24 +27,6 @@ class Atom(Generic[T]):
         self.value = None
 
 
-def frame2clip(frame: vs.VideoFrame, /) -> vs.VideoNode:
-    """Converts a VapourSynth frame to a clip.
-    :param frame:          The frame to conver
-    :param enforce_cache:  Unused, deprecated parameter. Kept for compatibility.
-    :return: A one-frame clip that yields the `frame` passed to the function.
-    """
-    bc = core.std.BlankClip(
-        width=frame.width,
-        height=frame.height,
-        length=1,
-        fpsnum=1,
-        fpsden=1,
-        format=frame.formaid
-    )
-    frame = frame.copy()
-    return bc.std.ModifyFrame([bc], lambda n, f: frame.copy())
-
-
 class FrameRequest:
     def build_frame_eval(
         self, clip: vs.VideoNode, frame_no: int, continuation: Callable[[Any], vs.VideoNode]
@@ -57,7 +39,6 @@ AnyCoroutine = Coroutine[FrameRequest, Any, T]
 
 
 class SingleFrameRequest(FrameRequest):
-
     def __init__(self, clip: vs.VideoNode, frame_no: int) -> None:
         self.clip = clip
         self.frame_no = frame_no
@@ -121,6 +102,13 @@ def _coro2node_wrapped(base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine
 def _coro2node(
     base_clip: vs.VideoNode, frameno: int, coro: FrameCoroutine, wrap: Atom[Any] | None = None
 ) -> vs.VideoNode:
+    assert base_clip.format
+
+    bc = core.std.BlankClip(
+        width=base_clip.width, height=base_clip.height,
+        format=base_clip.format.id, length=1, fpsnum=1, fpsden=1
+    )
+
     def _continue(value: Any) -> vs.VideoNode:
         if wrap:
             wrap.unset()
@@ -128,9 +116,10 @@ def _coro2node(
             next_request = coro.send(value)
         except StopIteration as e:
             if isinstance(e.value, vs.VideoNode):
-                return e
+                return e.value
             elif isinstance(e.value, vs.VideoFrame):
-                return frame2clip(e.value) * (frameno + 1)
+                frame = e.value.copy()
+                return bc.std.ModifyFrame(bc, lambda n, f: frame).std.Loop(frameno + 1)
             elif not wrap:
                 raise ValueError("You can only return a Frames and VideoNodes here.")
             else:
