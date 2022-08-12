@@ -22,10 +22,10 @@ try:
     class PyPluginCupy(PyPluginNumpy[FD_T]):
         backend = this_backend
 
-        cuda_streams_num: int = 0
+        cuda_num_streams: int = 0
 
         def to_device(self, f: vs.VideoFrame, idx: int, plane: int) -> None:
-            if self.cuda_streams_num:
+            if self.cuda_num_streams:
                 stop_events = []
                 for stream in self.cuda_streams:
                     self.src_arrays[plane][idx].data.copy_from_host_async(  # type: ignore
@@ -44,7 +44,7 @@ try:
                 )
 
         def from_device(self, f: vs.VideoFrame, plane: int) -> None:
-            if self.cuda_streams_num:
+            if self.cuda_num_streams:
                 stop_events = []
                 for stream in self.cuda_streams:
                     self.out_arrays[plane].data.copy_to_host_async(  # type: ignore
@@ -77,7 +77,7 @@ try:
         def _get_data_len(self, arr: NDArray[Any]) -> int:
             return round(
                 (arr.shape[0] * arr.shape[1] * arr.dtype.itemsize)
-                / max(1, self.cuda_streams_num)
+                / max(1, self.cuda_num_streams)
             )
 
         def __init__(
@@ -86,8 +86,8 @@ try:
             super().__init__(clips, ref_clip, **kwargs)
             assert self.ref_clip.format
 
-            if self.cuda_streams_num != 0 and self.cuda_streams_num < 2:
-                raise ValueError(f'{self.__class__.__name__}: cuda_streams_num must be 0 or >= 2!')
+            if self.cuda_num_streams != 0 and self.cuda_num_streams < 2:
+                raise ValueError(f'{self.__class__.__name__}: cuda_num_streams must be 0 or >= 2!')
 
             self.cuda_device = cp.cuda.Device()
             self.cuda_memory_pool = cp.cuda.MemoryPool()
@@ -95,7 +95,7 @@ try:
             cp.cuda.set_allocator(self.cuda_memory_pool.malloc)
 
             self.cuda_default_stream = cp.cuda.Stream(non_blocking=True)
-            self.cuda_streams = [cp.cuda.Stream(non_blocking=True) for _ in range(self.cuda_streams_num)]
+            self.cuda_streams = [cp.cuda.Stream(non_blocking=True) for _ in range(self.cuda_num_streams)]
             self.cuda_is_101 = 10010 <= cp.cuda.runtime.runtimeGetVersion()
 
             src_arrays = [self._alloc_arrays(clip) for clip in self.clips]
