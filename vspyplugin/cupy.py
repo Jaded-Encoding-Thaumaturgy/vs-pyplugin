@@ -4,7 +4,7 @@ from typing import Any, cast
 
 import vapoursynth as vs
 
-from .base import FD_T, PyBackend, PyPluginUnavailableBackend, PyPlugin
+from .base import FD_T, PyBackend, PyPlugin, PyPluginUnavailableBackend
 
 __all__ = [
     'PyPluginCupy'

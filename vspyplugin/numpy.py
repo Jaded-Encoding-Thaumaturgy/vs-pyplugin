@@ -14,7 +14,8 @@ this_backend = PyBackend.NUMPY
 
 try:
     from numpy import dtype
-    from numpy.core._multiarray_umath import array as nparray, copyto as npcopyto  # type: ignore
+    from numpy.core._multiarray_umath import array as nparray  # type: ignore
+    from numpy.core._multiarray_umath import copyto as npcopyto
     from numpy.typing import NDArray
 
     class PyPluginNumpy(PyPlugin[FD_T]):

@@ -3,10 +3,9 @@ from __future__ import annotations
 from abc import abstractmethod
 from enum import IntEnum
 from functools import wraps
-from typing import Any, Callable, Generic, Literal, Type, TypeVar, overload, cast
+from typing import Any, Callable, Generic, Literal, Type, TypeVar, cast, overload
 
 import vapoursynth as vs
-
 
 __all__ = [
     'PyBackend', 'PyPlugin',
