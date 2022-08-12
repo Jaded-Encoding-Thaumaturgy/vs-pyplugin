@@ -61,7 +61,6 @@ class PyPlugin(Generic[FD_T]):
     # Implementation configs
     min_clips: int = 1
     max_clips: int = -1
-    omit_first_clip: bool = False
     channels_last: bool = True
 
     clips: list[vs.VideoNode]
@@ -150,11 +149,6 @@ class PyPlugin(Generic[FD_T]):
             max_clips = 'inf' if self.max_clips == -1 else self.max_clips
             raise ValueError(
                 f'{class_name}: You must pass {self.min_clips} <= n clips <= {max_clips}!'
-            )
-
-        if n_clips == self.omit_first_clip == 1:
-            raise ValueError(
-                f'{class_name}: You must have at least two clips to omit the first clip!'
             )
 
     def invoke(self) -> vs.VideoNode:

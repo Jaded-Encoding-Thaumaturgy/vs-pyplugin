@@ -57,7 +57,6 @@ try:
                 else:
                     def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
                         fout = f[0].copy()
-                        f = f[self.omit_first_clip:]
 
                         for p in range(fout.format.num_planes):
                             self.process([self.to_host(frame, p) for frame in f], self.to_host(fout, p), n)
@@ -74,8 +73,6 @@ try:
                 else:
                     def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
                         fout = f[0].copy()
-
-                        f = f[self.omit_first_clip:]
 
                         self.process([self.to_host(frame, 0) for frame in f], self.to_host(fout, 0), n)
 

@@ -129,7 +129,6 @@ try:
                 else:
                     def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
                         fout = f[0].copy()
-                        f = f[self.omit_first_clip:]
 
                         for p in range(fout.format.num_planes):
                             for i, frame in enumerate(f):
@@ -152,7 +151,6 @@ try:
                 else:
                     def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
                         fout = f[0].copy()
-                        f = f[self.omit_first_clip:]
 
                         for i, frame in enumerate(f):
                             self.to_device(frame, i, 0)
