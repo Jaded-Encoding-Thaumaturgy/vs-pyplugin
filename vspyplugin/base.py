@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from enum import IntEnum
-from typing import Any, Generic, Literal, Type, TypeVar, overload
+from functools import wraps
+from typing import Any, Callable, Generic, Literal, Type, TypeVar, overload, cast
 
 import vapoursynth as vs
 
@@ -43,6 +44,7 @@ class PyBackend(IntEnum):
 _unavailable_backends = set[tuple[PyBackend, BaseException | None]]()
 
 FD_T = TypeVar('FD_T')
+F = TypeVar('F', bound=Callable[..., vs.VideoNode])
 
 
 class GenericFilterData(dict[str, Any]):
@@ -72,21 +74,20 @@ class PyPlugin(Generic[FD_T]):
 
     float_processing: bool | Literal[16, 32] = False
 
-    @abstractmethod
-    def eval_single_clip_per_plane(self, f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-        ...
+    @staticmethod
+    def ensure_output(func: F) -> F:
+        @wraps(func)
+        def _wrapper(self: PyPlugin[FD_T], *args: Any, **kwargs: Any) -> Any:
+            assert self.ref_clip.format
 
-    @abstractmethod
-    def eval_single_clip_one_plane(self, f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-        ...
+            out = func(self, *args, **kwargs)
 
-    @abstractmethod
-    def eval_multi_clips_per_plane(self, f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-        ...
+            if self.out_format.id != self.ref_clip.format.id:
+                return out.resize.Bicubic(format=self.out_format.id, dither_type='none')
 
-    @abstractmethod
-    def eval_multi_clips_one_plane(self, f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-        ...
+            return out
+
+        return cast(F, _wrapper)
 
     @abstractmethod
     def to_host(self, f: vs.VideoFrame, plane: int, copy: bool = False) -> Any:
@@ -167,21 +168,7 @@ class PyPlugin(Generic[FD_T]):
             )
 
     def invoke(self) -> vs.VideoNode:
-        assert self.ref_clip.format
-
-        n_clips = len(self.clips)
-
-        if self.out_format.num_planes > 1 or self.out_format.subsampling_w or self.out_format.subsampling_h:
-            function = self.eval_single_clip_per_plane if n_clips == 1 else self.eval_multi_clips_per_plane
-        else:
-            function = self.eval_single_clip_one_plane if n_clips == 1 else self.eval_multi_clips_one_plane
-
-        out = self.ref_clip.std.ModifyFrame(self.clips, function)  # type: ignore
-
-        if self.out_format.id != self.ref_clip.format.id:
-            return out.resize.Bicubic(format=self.out_format.id, dither_type='none')
-
-        return out
+        raise NotImplementedError
 
 
 class PyPluginUnavailableBackend(PyPlugin[FD_T]):

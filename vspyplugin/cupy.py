@@ -4,7 +4,7 @@ from typing import Any, cast
 
 import vapoursynth as vs
 
-from .base import FD_T, PyBackend, PyPluginUnavailableBackend
+from .base import FD_T, PyBackend, PyPluginUnavailableBackend, PyPlugin
 
 __all__ = [
     'PyPluginCupy'
@@ -62,50 +62,6 @@ try:
                     f.get_write_ptr(plane), self.out_data_lengths[plane]
                 )
 
-        def eval_single_clip_per_plane(self, f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-            fout = f.copy()
-
-            for p in range(fout.format.num_planes):
-                self.to_device(f, 0, p)
-                self.process(self.src_arrays[p][0], self.out_arrays[p], n)
-                self.from_device(fout, p)
-
-            return fout
-
-        def eval_single_clip_one_plane(self, f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-            fout = f.copy()
-
-            self.to_device(f, 0, 0)
-            self.process(self.src_arrays[0][0], self.out_arrays[0], n)
-            self.from_device(fout, 0)
-
-            return fout
-
-        def eval_multi_clips_per_plane(self, f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-            fout = f[0].copy()
-            f = f[self.omit_first_clip:]
-
-            for p in range(fout.format.num_planes):
-                for i, frame in enumerate(f):
-                    self.to_device(frame, i, p)
-
-                self.process(self.src_arrays[p], self.out_arrays[p], n)
-                self.from_device(fout, p)
-
-            return fout
-
-        def eval_multi_clips_one_plane(self, f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-            fout = f[0].copy()
-            f = f[self.omit_first_clip:]
-
-            for i, frame in enumerate(f):
-                self.to_device(frame, i, 0)
-
-            self.process(self.src_arrays[0], self.out_arrays[0], n)
-            self.from_device(fout, 0)
-
-            return fout
-
         def _alloc_arrays(self, clip: vs.VideoNode) -> list[NDArray[Any]]:
             assert clip.format
 
@@ -150,6 +106,63 @@ try:
 
             self.src_data_lengths = [[self._get_data_len(a) for a in arr] for arr in self.src_arrays]
             self.out_data_lengths = [self._get_data_len(arr) for arr in self.out_arrays]
+
+        @PyPlugin.ensure_output
+        def invoke(self) -> vs.VideoNode:
+            assert self.ref_clip.format
+
+            n_clips = len(self.clips)
+
+            function: Any
+
+            if self.out_format.num_planes > 1 or self.out_format.subsampling_w or self.out_format.subsampling_h:
+                if n_clips == 1:
+                    def function(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                        fout = f.copy()
+
+                        for p in range(fout.format.num_planes):
+                            self.to_device(f, 0, p)
+                            self.process(self.src_arrays[p][0], self.out_arrays[p], n)
+                            self.from_device(fout, p)
+
+                        return fout
+                else:
+                    def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
+                        fout = f[0].copy()
+                        f = f[self.omit_first_clip:]
+
+                        for p in range(fout.format.num_planes):
+                            for i, frame in enumerate(f):
+                                self.to_device(frame, i, p)
+
+                            self.process(self.src_arrays[p], self.out_arrays[p], n)
+                            self.from_device(fout, p)
+
+                        return fout
+            else:
+                if n_clips == 1:
+                    def function(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                        fout = f.copy()
+
+                        self.to_device(f, 0, 0)
+                        self.process(self.src_arrays[0][0], self.out_arrays[0], n)
+                        self.from_device(fout, 0)
+
+                        return fout
+                else:
+                    def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
+                        fout = f[0].copy()
+                        f = f[self.omit_first_clip:]
+
+                        for i, frame in enumerate(f):
+                            self.to_device(frame, i, 0)
+
+                        self.process(self.src_arrays[0], self.out_arrays[0], n)
+                        self.from_device(fout, 0)
+
+                        return fout
+
+            return self.ref_clip.std.ModifyFrame(self.clips, function)
 
     this_backend.set_available(True)
 except BaseException as e:

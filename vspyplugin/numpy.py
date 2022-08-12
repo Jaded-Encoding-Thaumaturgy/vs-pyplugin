@@ -29,44 +29,58 @@ try:
         def from_host(self, src: Any, dst: vs.VideoFrame, plane: int, copy: bool = False) -> Any:
             return npcopyto(nparray(dst[plane], copy=copy), src)
 
-        def eval_single_clip_per_plane(self, f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-            fout = f.copy()
-
-            for p in range(fout.format.num_planes):
-                self.process(self.to_host(f, p), self.to_host(fout, p), n)
-
-            return fout
-
-        def eval_single_clip_one_plane(self, f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-            fout = f.copy()
-
-            self.process(self.to_host(f, 0), self.to_host(fout, 0), n)
-
-            return fout
-
-        def eval_multi_clips_per_plane(self, f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-            fout = f[0].copy()
-            f = f[self.omit_first_clip:]
-
-            for p in range(fout.format.num_planes):
-                self.process([self.to_host(frame, p) for frame in f], self.to_host(fout, p), n)
-
-            return fout
-
-        def eval_multi_clips_one_plane(self, f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-            fout = f[0].copy()
-            f = f[self.omit_first_clip:]
-
-            self.process([self.to_host(frame, 0) for frame in f], self.to_host(fout, 0), n)
-
-            return fout
-
         def get_dtype(self, clip: vs.VideoNode) -> dtype[Any]:
             assert clip.format
 
             stype = 'float' if clip.format.sample_type is vs.FLOAT else 'uint'
             bps = clip.format.bits_per_sample
             return dtype(f'{stype}{bps}')
+
+        @PyPlugin.ensure_output
+        def invoke(self) -> vs.VideoNode:
+            assert self.ref_clip.format
+
+            n_clips = len(self.clips)
+
+            function: Any
+
+            if self.out_format.num_planes > 1 or self.out_format.subsampling_w or self.out_format.subsampling_h:
+                if n_clips == 1:
+                    def function(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                        fout = f.copy()
+
+                        for p in range(fout.format.num_planes):
+                            self.process(self.to_host(f, p), self.to_host(fout, p), n)
+
+                        return fout
+                else:
+                    def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
+                        fout = f[0].copy()
+                        f = f[self.omit_first_clip:]
+
+                        for p in range(fout.format.num_planes):
+                            self.process([self.to_host(frame, p) for frame in f], self.to_host(fout, p), n)
+
+                        return fout
+            else:
+                if n_clips == 1:
+                    def function(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                        fout = f.copy()
+
+                        self.process(self.to_host(f, 0), self.to_host(fout, 0), n)
+
+                        return fout
+                else:
+                    def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
+                        fout = f[0].copy()
+
+                        f = f[self.omit_first_clip:]
+
+                        self.process([self.to_host(frame, 0) for frame in f], self.to_host(fout, 0), n)
+
+                        return fout
+
+            return self.ref_clip.std.ModifyFrame(self.clips, function)
 
     this_backend.set_available(True)
 except BaseException as e:
