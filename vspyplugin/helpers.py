@@ -12,6 +12,17 @@ from .exceptions import FormattedException
 
 core = vs.core
 
+__all__ = [
+    'FrameRequest', 'SingleFrameRequest', 'GatherRequests',
+    'Atom',
+
+    'get_frame', 'get_frames', 'gather',
+
+    'frame_eval', 'frame_eval_async',
+
+    'AnyCoroutine'
+]
+
 UNWRAP_NAME = '__vspyplugin_unwrap'
 
 
