@@ -55,21 +55,21 @@ class PyPlugin(Generic[FD_T]):
     )
 
     backend: PyBackend
-
     filter_data: Type[FD_T]
 
-    # Implementation configs
+    float_processing: bool | Literal[16, 32] = False
+    input_per_plane: bool | list[bool] = True
+    output_per_plane: bool = True
+    channels_last: bool = True
+
     min_clips: int = 1
     max_clips: int = -1
-    channels_last: bool = True
 
     clips: list[vs.VideoNode]
     ref_clip: vs.VideoNode
     out_format: vs.VideoFormat
 
     fd: FD_T
-
-    float_processing: bool | Literal[16, 32] = False
 
     @staticmethod
     def ensure_output(func: F) -> F:
