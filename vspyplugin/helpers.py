@@ -2,8 +2,7 @@
 This module and original idea is by cid-chan (Sarah <cid@cid-chan.moe>)
 """
 
-import typing as t
-
+from typing import Any, Callable, Coroutine, Generic, TypeVar
 import vapoursynth as vs
 
 from .exceptions import FormattedException
@@ -11,12 +10,12 @@ from .exceptions import FormattedException
 core = vs.core
 
 
-UNWRAP_NAME = "__vspyplugin_unwrap"
-T = t.TypeVar("T")
+UNWRAP_NAME = '__vspyplugin_unwrap'
+T = TypeVar('T')
 
 
-class Atom(t.Generic[T]):
-    value: t.Optional[T]
+class Atom(Generic[T]):
+    value: T | None
 
     def __init__(self) -> None:
         self.value = None
@@ -30,7 +29,7 @@ class Atom(t.Generic[T]):
 
 def frame2clip(frame: vs.VideoFrame, /) -> vs.VideoNode:
     """Converts a VapourSynth frame to a clip.
-    :param frame:          The frame to convert.
+    :param frame:          The frame to conver
     :param enforce_cache:  Unused, deprecated parameter. Kept for compatibility.
     :return: A one-frame clip that yields the `frame` passed to the function.
     """
@@ -40,7 +39,7 @@ def frame2clip(frame: vs.VideoFrame, /) -> vs.VideoNode:
         length=1,
         fpsnum=1,
         fpsden=1,
-        format=frame.format.id
+        format=frame.formaid
     )
     frame = frame.copy()
     return bc.std.ModifyFrame([bc], lambda n, f: frame.copy())
@@ -48,13 +47,13 @@ def frame2clip(frame: vs.VideoFrame, /) -> vs.VideoNode:
 
 class FrameRequest:
     def build_frame_eval(
-        self, clip: vs.VideoNode, frame_no: int, continuation: t.Callable[[t.Any], vs.VideoNode]
+        self, clip: vs.VideoNode, frame_no: int, continuation: Callable[[Any], vs.VideoNode]
     ) -> vs.VideoNode:
         raise NotImplementedError()
 
 
-FrameCoroutine = t.Coroutine[FrameRequest, t.Any, vs.VideoFrame]
-AnyCoroutine = t.Coroutine[FrameRequest, t.Any, T]
+FrameCoroutine = Coroutine[FrameRequest, Any, vs.VideoFrame]
+AnyCoroutine = Coroutine[FrameRequest, Any, T]
 
 
 class SingleFrameRequest(FrameRequest):
@@ -67,7 +66,7 @@ class SingleFrameRequest(FrameRequest):
         return (yield self)
 
     def build_frame_eval(
-        self, clip: vs.VideoNode, frame_no: int, continuation: t.Callable[[t.Any], vs.VideoNode]
+        self, clip: vs.VideoNode, frame_no: int, continuation: Callable[[Any], vs.VideoNode]
     ) -> vs.VideoNode:
         req_clip = self.clip[self.frame_no] * (frame_no + 1)
 
@@ -77,14 +76,14 @@ class SingleFrameRequest(FrameRequest):
 
 
 class Gather(FrameRequest):
-    def __init__(self, coros: t.List[FrameCoroutine]) -> None:
+    def __init__(self, coros: list[FrameCoroutine]) -> None:
         self.coros = coros
 
     def __await__(self):
         return (yield self)
 
     def build_frame_eval(
-        self, clip: vs.VideoNode, frame_no: int, continuation: t.Callable[[t.Any], vs.VideoNode]
+        self, clip: vs.VideoNode, frame_no: int, continuation: Callable[[Any], vs.VideoNode]
     ) -> vs.VideoNode:
         wrapped = [
             _coro2node_wrapped(clip, frame_no, coro)
@@ -103,26 +102,26 @@ async def get_frame(clip: vs.VideoNode, frame_no: int) -> vs.VideoFrame:
     return await SingleFrameRequest(clip, frame_no)
 
 
-async def gather(*coros: AnyCoroutine[t.Any]) -> t.Tuple[t.Any, ...]:
+async def gather(*coros: AnyCoroutine[Any]) -> tuple[Any, ...]:
     return await Gather(list(coros))
 
 
-def _unwrap(frame: vs.VideoFrame, atom: Atom[t.Any]) -> t.Any:
+def _unwrap(frame: vs.VideoFrame, atom: Atom[Any]) -> Any:
     if frame.props.get(UNWRAP_NAME, False):
         return atom.value
     else:
         return frame
 
 
-def _coro2node_wrapped(base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[T]) -> t.Tuple[vs.VideoNode, Atom[T]]:
+def _coro2node_wrapped(base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[T]) -> tuple[vs.VideoNode, Atom[T]]:
     atom = Atom()
     return _coro2node(base_clip, frameno, coro, atom), atom
 
 
 def _coro2node(
-    base_clip: vs.VideoNode, frameno: int, coro: FrameCoroutine, wrap: t.Optional[Atom[t.Any]] = None
+    base_clip: vs.VideoNode, frameno: int, coro: FrameCoroutine, wrap: Atom[Any] | None = None
 ) -> vs.VideoNode:
-    def _continue(value: t.Any) -> vs.VideoNode:
+    def _continue(value: Any) -> vs.VideoNode:
         if wrap:
             wrap.unset()
         try:
