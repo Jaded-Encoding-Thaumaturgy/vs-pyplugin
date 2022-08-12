@@ -22,13 +22,12 @@ class FrameRequest:
         raise NotImplementedError
 
 
-FrameCoroutine = Coroutine[FrameRequest, Any, vs.VideoFrame]
-
 T = TypeVar('T')
+S = TypeVar('S')
 
-AnyCoroutine = Coroutine[FrameRequest, Any, T]
+AnyCoroutine = Coroutine[FrameRequest, S | None, T]
 
-F = TypeVar('F', bound=Callable[..., FrameCoroutine])
+FE_FUNC = Callable[[int], AnyCoroutine[None, vs.VideoFrame | vs.VideoNode]]
 
 
 class Atom(Generic[T]):
@@ -53,9 +52,10 @@ class SingleFrameRequest(FrameRequest):
         return (yield self)  # type: ignore
 
     def build_frame_eval(
-        self, clip: vs.VideoNode, frame_no: int, continuation: Callable[[Any], vs.VideoNode]
+        self, clip: vs.VideoNode, frame_no: int,
+        continuation: Callable[[Any], vs.VideoNode]
     ) -> vs.VideoNode:
-        req_clip = self.clip[self.frame_no] * (frame_no + 1)
+        req_clip = self.clip[self.frame_no]
 
         return clip.std.FrameEval(
             lambda n, f: continuation(f), [req_clip]
@@ -63,28 +63,42 @@ class SingleFrameRequest(FrameRequest):
 
 
 class GatherRequests(Generic[T], FrameRequest):
-    def __init__(self, coroutines: tuple[AnyCoroutine[T], ...]) -> None:
+    def __init__(self, coroutines: tuple[AnyCoroutine[S, T], ...]) -> None:
+        if len(coroutines) <= 1:
+            raise ValueError('GatherRequests: you need to pass at least 2 coroutines!')
+
         self.coroutines = coroutines
 
     def __await__(self) -> Generator[GatherRequests[T], None, tuple[T, ...]]:
         return (yield self)  # type: ignore
 
+    @staticmethod
+    def _unwrap(frame: vs.VideoFrame, atom: Atom[T]) -> vs.VideoFrame | T | None:
+        if frame.props.get(UNWRAP_NAME, False):
+            return atom.value
+
+        return frame
+
+    def unwrap_coros(self, clip: vs.VideoNode, frame_no: int) -> tuple[list[vs.VideoNode], list[Atom[T]]]:
+        return zip(*[  # type: ignore
+            _coro2node_wrapped(clip, frame_no, coro) for coro in self.coroutines
+        ])
+
+    def wrap_frames(self, frames: list[vs.VideoFrame], atoms: list[Atom[T]]) -> tuple[vs.VideoFrame | T | None, ...]:
+        return tuple(
+            self._unwrap(frame, atom) for frame, atom in zip(frames, atoms)
+        )
+
     def build_frame_eval(
-        self, clip: vs.VideoNode, frame_no: int, continuation: Callable[[Any], vs.VideoNode]
+        self, clip: vs.VideoNode, frame_no: int,
+        continuation: Callable[[tuple[vs.VideoFrame | T | None, ...]], vs.VideoNode]
     ) -> vs.VideoNode:
-        wrapped = [
-            _coro2node_wrapped(clip, frame_no, coro)
-            for coro in self.coroutines
-        ]
+        clips, atoms = self.unwrap_coros(clip, frame_no)
 
         def _apply(n: int, f: list[vs.VideoFrame]) -> vs.VideoNode:
-            return continuation(
-                tuple(
-                    _unwrap(fr, wrapped[fn][1])
-                    for fn, fr in enumerate(f)
-                )
-            )
-        return clip.std.FrameEval(_apply, prop_src=[c for c, _ in wrapped])
+            return continuation(self.wrap_frames(f, atoms))
+
+        return clip.std.FrameEval(_apply, clips)
 
 
 async def get_frame(clip: vs.VideoNode, frame_no: int) -> vs.VideoFrame:
@@ -109,63 +123,75 @@ async def get_frames(
     return await gather(*coroutines)
 
 
-async def gather(*coroutines: AnyCoroutine[T]) -> tuple[T, ...]:
+async def gather(*coroutines: AnyCoroutine[S, T]) -> tuple[T, ...]:
     return await GatherRequests(coroutines)
 
 
-def _unwrap(frame: vs.VideoFrame, atom: Atom[Any]) -> Any:
-    if frame.props.get(UNWRAP_NAME, False):
-        return atom.value
-    else:
-        return frame
+def _wrapped_modify_frame(blank_clip: vs.VideoNode) -> Callable[[vs.VideoFrame], vs.VideoNode]:
+    def _wrap_frame(frame: vs.VideoFrame) -> vs.VideoNode:
+        def _return_frame(n: int, f: vs.VideoFrame) -> vs.VideoFrame:
+            return frame
+
+        return blank_clip.std.ModifyFrame(blank_clip, _return_frame)
+
+    return _wrap_frame
 
 
 def _coro2node_wrapped(
-    base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[T]
+    base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[S, T]
 ) -> tuple[vs.VideoNode, Atom[T]]:
     atom = Atom[T]()
-    return _coro2node(base_clip, frameno, coro, atom), atom  # type: ignore
+    return _coro2node(base_clip, frameno, coro, atom), atom
 
 
 def _coro2node(
-    base_clip: vs.VideoNode, frameno: int, coro: FrameCoroutine, wrap: Atom[Any] | None = None
+    base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[S, T], wrap: Atom[T] | None = None
 ) -> vs.VideoNode:
     assert base_clip.format
 
-    bc = core.std.BlankClip(
-        width=base_clip.width, height=base_clip.height, keep=True,
-        format=base_clip.format.id, length=1, fpsnum=1, fpsden=1
+    props_clip = base_clip.std.BlankClip()
+    blank_clip = core.std.BlankClip(
+        length=1, fpsnum=1, fpsden=1, keep=True,
+        width=base_clip.width, height=base_clip.height,
+        format=base_clip.format.id
     )
 
-    props_clip = base_clip.std.BlankClip()
+    _wrap_frame = _wrapped_modify_frame(blank_clip)
 
-    def _continue(value: Any) -> vs.VideoNode:
+    def _continue(wrapped_value: S | None) -> vs.VideoNode:
         if wrap:
             wrap.unset()
 
         try:
-            next_request = coro.send(value)
+            next_request = coro.send(wrapped_value)
         except StopIteration as e:
-            if isinstance(e.value, vs.VideoNode):
-                return e.value
-            elif isinstance(e.value, vs.VideoFrame):
-                frame = e.value.copy()
-                return bc.std.ModifyFrame(bc, lambda n, f: frame).std.Loop(frameno + 1)
-            elif not wrap:
-                raise ValueError("You can only return a Frames and VideoNodes here.")
-            else:
-                wrap.set(e.value)
-                return props_clip.std.SetFrameProp(UNWRAP_NAME, intval=True)
+            value = e.value
+
+            if isinstance(value, vs.VideoNode):
+                return value
+
+            if isinstance(value, vs.VideoFrame):
+                return _wrap_frame(value)
+
+            if not wrap:
+                raise ValueError('frame_eval: You can only return a VideoFrame or VideoNode!')
+
+            wrap.set(value)
+
+            return props_clip.std.SetFrameProp(UNWRAP_NAME, intval=True)
         except Exception as e:
             raise FormattedException(e)
-        else:
-            return next_request.build_frame_eval(base_clip, frameno, _continue)
+
+        return next_request.build_frame_eval(base_clip, frameno, _continue)
+
     return _continue(None)
 
 
-def frame_eval(base_clip: vs.VideoNode) -> Callable[[F], vs.VideoNode]:
-    def _decorator(func: F) -> vs.VideoNode:
-        return base_clip.std.FrameEval(
-            lambda n: _coro2node(base_clip, n, func(n))
-        )
+def frame_eval(base_clip: vs.VideoNode) -> Callable[[FE_FUNC], vs.VideoNode]:
+    def _decorator(func: FE_FUNC) -> vs.VideoNode:
+        def _inner(n: int) -> vs.VideoNode:
+            return _coro2node(base_clip, n, func(n))
+
+        return base_clip.std.FrameEval(_inner)
+
     return _decorator
