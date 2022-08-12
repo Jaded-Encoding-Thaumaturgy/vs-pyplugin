@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from enum import IntEnum
 from functools import wraps
 from typing import Any, Callable, Generic, Literal, Type, TypeVar, cast, overload
@@ -87,14 +86,6 @@ class PyPlugin(Generic[FD_T]):
             return out
 
         return cast(F, _wrapper)
-
-    @abstractmethod
-    def to_host(self, f: vs.VideoFrame, plane: int, copy: bool = False) -> Any:
-        ...
-
-    @abstractmethod
-    def from_host(self, src: Any, dst: vs.VideoFrame, plane: int, copy: bool = False) -> Any:
-        ...
 
     def process(self, src: Any, dst: Any, n: int) -> None:
         raise NotImplementedError
