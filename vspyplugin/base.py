@@ -105,9 +105,6 @@ class PyPlugin(Generic[FD_T]):
 
         return PyPluginInnerClass
 
-    def get_filter_data(self, **kwargs: Any) -> FD_T:
-        return self.filter_data(**kwargs)
-
     @overload
     def norm_clip(self, clip: vs.VideoNode) -> vs.VideoNode:
         ...
@@ -149,7 +146,7 @@ class PyPlugin(Generic[FD_T]):
         self.clips = [self.norm_clip(clip) for clip in clips]
         self.ref_clip = self.norm_clip(ref_clip) if ref_clip else self.clips[0]
 
-        self.fd = self.get_filter_data(**kwargs)
+        self.fd = self.filter_data(**kwargs)
 
         n_clips = len(self.clips)
 
