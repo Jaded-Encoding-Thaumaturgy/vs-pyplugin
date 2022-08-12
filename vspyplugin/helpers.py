@@ -27,7 +27,7 @@ S = TypeVar('S')
 
 AnyCoroutine = Coroutine[FrameRequest, S | None, T]
 
-FE_FUNC = Callable[[int], AnyCoroutine[None, vs.VideoFrame | vs.VideoNode]]
+FEA_FUNC = Callable[[int], AnyCoroutine[None, vs.VideoFrame | vs.VideoNode]]
 
 
 class Atom(Generic[T]):
@@ -174,7 +174,7 @@ def _coro2node(
                 return _wrap_frame(value)
 
             if not wrap:
-                raise ValueError('frame_eval: You can only return a VideoFrame or VideoNode!')
+                raise ValueError('frame_eval_async: You can only return a VideoFrame or VideoNode!')
 
             wrap.set(value)
 
@@ -187,8 +187,8 @@ def _coro2node(
     return _continue(None)
 
 
-def frame_eval(base_clip: vs.VideoNode) -> Callable[[FE_FUNC], vs.VideoNode]:
-    def _decorator(func: FE_FUNC) -> vs.VideoNode:
+def frame_eval_async(base_clip: vs.VideoNode) -> Callable[[FEA_FUNC], vs.VideoNode]:
+    def _decorator(func: FEA_FUNC) -> vs.VideoNode:
         def _inner(n: int) -> vs.VideoNode:
             return _coro2node(base_clip, n, func(n))
 
