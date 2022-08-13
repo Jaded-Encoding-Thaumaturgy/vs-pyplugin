@@ -8,8 +8,6 @@ from typing import Any, Callable, Coroutine, Generator, Generic, Iterable, Liter
 
 import vapoursynth as vs
 
-from .exceptions import FormattedException
-
 core = vs.core
 
 __all__ = [
@@ -201,7 +199,7 @@ def _coro2node(
 
             return props_clip.std.SetFrameProp(UNWRAP_NAME, intval=True)
         except Exception as e:
-            raise FormattedException(e)
+            raise e
 
         return next_request.build_frame_eval(base_clip, frameno, _continue)
 

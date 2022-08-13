@@ -1,19 +1,8 @@
 from __future__ import annotations
 
-import textwrap
-from traceback import format_exception
 from typing import Any
 
 from .base import PyBackend, PyPlugin
-
-
-class FormattedException(Exception):
-    def __init__(self, e: Exception) -> None:
-        formatted = ''.join(
-            format_exception(type(e), e, e.__traceback__)
-        )
-        formatted = textwrap.indent(formatted, '| ')
-        super().__init__(f'Something went wrong.\n{formatted}')
 
 
 class UnavailableBackend(ValueError):
