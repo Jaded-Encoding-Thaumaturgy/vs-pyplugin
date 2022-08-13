@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from string import Template
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence
+from typing import TYPE_CHECKING, Any, Literal, Sequence
 
 import vapoursynth as vs
 
@@ -57,13 +57,20 @@ try:
     from .cupy import PyPluginCupy
     from numpy.typing import NDArray
 
+    class CudaKernelFunction:
+        def __call__(
+            self, src: NDArray[Any], dst: NDArray[Any], *args: Any,
+            kernel_size: tuple[int, int] = ..., block_size: tuple[int, int] = ..., shared_mem: int = ...
+        ) -> Any:
+            ...
+
     class CudaKernelFunctions:
         def __init__(self, **kwargs: Any) -> None:
             for key, func in kwargs.items():
                 setattr(self, key, func)
 
         if TYPE_CHECKING:
-            def __getattribute__(self, __name: str) -> Callable[[NDArray[Any], NDArray[Any]], None]:
+            def __getattribute__(self, __name: str) -> CudaKernelFunction:
                 ...
 
     class PyPluginCuda(PyPluginCupy[FD_T]):
