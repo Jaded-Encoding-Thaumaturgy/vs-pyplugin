@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from string import Template
-from typing import TYPE_CHECKING, Any, Literal, Sequence
+from typing import TYPE_CHECKING, Any, Literal, Sequence, TypeVar
 
 import vapoursynth as vs
 
@@ -17,6 +17,8 @@ __all__ = [
 ]
 
 this_backend = PyBackend.CUDA
+
+T = TypeVar('T')
 
 
 @dataclass
@@ -64,13 +66,43 @@ try:
         ) -> Any:
             ...
 
+    class CudaKernelFunctionPlanes(CudaKernelFunction):
+        __slots__ = ('function', 'planes_function')
+
+        def __init__(
+            self, function: CudaKernelFunction, planes_functions: list[CudaKernelFunction] | None = None
+        ) -> None:
+            self.function = function
+            if planes_functions is None:
+                self.planes_functions = [function]
+            else:
+                self.planes_functions = planes_functions
+
+            self.planes_functions += self.planes_functions[:-1] * (3 - len(self.planes_functions))
+
+        if TYPE_CHECKING:
+            def __call__(
+                self, src: NDArray[Any], dst: NDArray[Any], *args: Any,
+                kernel_size: tuple[int, int] = ..., block_size: tuple[int, int] = ..., shared_mem: int = ...
+            ) -> Any:
+                ...
+        else:
+            def __call__(self, *args: Any, **kwargs: Any) -> Any:
+                return self.function(*args, **kwargs)
+
+        def __getitem__(self, plane: int | None) -> CudaKernelFunction:
+            if plane is None:
+                return self.function
+
+            return self.planes_functions[plane]
+
     class CudaKernelFunctions:
         def __init__(self, **kwargs: Any) -> None:
             for key, func in kwargs.items():
                 setattr(self, key, func)
 
         if TYPE_CHECKING:
-            def __getattribute__(self, __name: str) -> CudaKernelFunction:
+            def __getattribute__(self, __name: str) -> CudaKernelFunctionPlanes:
                 ...
 
     class PyPluginCuda(PyPluginCupy[FD_T]):
