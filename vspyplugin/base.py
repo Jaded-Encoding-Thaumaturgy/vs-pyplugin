@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dataclasses import dataclass
 
 from functools import wraps
 from itertools import count
@@ -20,6 +21,54 @@ FD_T = TypeVar('FD_T', bound=SupportsKeysAndGetItem[str, object] | None)
 F = TypeVar('F', bound=Callable[..., vs.VideoNode])
 
 
+@dataclass
+class PyPluginOptions:
+    float_processing: bool | Literal[16, 32] = False
+    shift_chroma: bool = False
+
+    @overload
+    def norm_clip(self, clip: vs.VideoNode) -> vs.VideoNode:
+        ...
+
+    @overload
+    def norm_clip(self, clip: None) -> None:
+        ...
+
+    def norm_clip(self, clip: vs.VideoNode | None) -> vs.VideoNode | None:
+        if not clip:
+            return clip
+
+        assert (fmt := clip.format)
+
+        if self.float_processing:
+            bps = 32 if self.float_processing is True else self.float_processing
+
+            if fmt.sample_type is not vs.FLOAT or fmt.bits_per_sample != bps:
+                clip = clip.resize.Point(
+                    format=fmt.replace(sample_type=vs.FLOAT, bits_per_sample=bps).id,
+                    dither_type='none'
+                )
+
+        if self.shift_chroma:
+            if fmt.sample_type is not vs.FLOAT and not self.float_processing:
+                raise ValueError(
+                    f'{self.__class__.__name__}: You need to have a clip with float sample type for shift_chroma=True!'
+                )
+
+            if fmt.num_planes == 3:
+                clip = clip.std.Expr(['', 'x 0.5 +'])
+
+        return clip
+
+    def ensure_output(self, plugin: PyPlugin[FD_T], clip: vs.VideoNode) -> vs.VideoNode:
+        assert plugin.ref_clip.format
+
+        if plugin.out_format.id != plugin.ref_clip.format.id:
+            return clip.resize.Bicubic(format=plugin.out_format.id, dither_type='none')
+
+        return clip
+
+
 class PyPlugin(Generic[FD_T]):
     if TYPE_CHECKING:
         __slots__ = (
@@ -35,7 +84,8 @@ class PyPlugin(Generic[FD_T]):
     backend: PyBackend
     filter_data: Type[FD_T]
 
-    float_processing: bool | Literal[16, 32] = False
+    options: PyPluginOptions = PyPluginOptions()
+
     input_per_plane: bool | list[bool] = True
     output_per_plane: bool = True
     channels_last: bool = True
@@ -53,14 +103,7 @@ class PyPlugin(Generic[FD_T]):
     def ensure_output(func: F) -> F:
         @wraps(func)
         def _wrapper(self: PyPlugin[FD_T], *args: Any, **kwargs: Any) -> Any:
-            assert self.ref_clip.format
-
-            out = func(self, *args, **kwargs)
-
-            if self.out_format.id != self.ref_clip.format.id:
-                return out.resize.Bicubic(format=self.out_format.id, dither_type='none')
-
-            return out
+            return self.options.ensure_output(self, func(self, *args, **kwargs))
 
         return cast(F, _wrapper)
 
@@ -73,31 +116,6 @@ class PyPlugin(Generic[FD_T]):
 
         return PyPluginInnerClass
 
-    @overload
-    def norm_clip(self, clip: vs.VideoNode) -> vs.VideoNode:
-        ...
-
-    @overload
-    def norm_clip(self, clip: None) -> None:
-        ...
-
-    def norm_clip(self, clip: vs.VideoNode | None) -> vs.VideoNode | None:
-        if not clip:
-            return clip
-
-        assert clip.format
-
-        if self.float_processing:
-            bps = 32 if self.float_processing is True else self.float_processing
-
-            if clip.format.sample_type is not vs.FLOAT or clip.format.bits_per_sample != bps:
-                return clip.resize.Point(
-                    format=clip.format.replace(sample_type=vs.FLOAT, bits_per_sample=bps).id,
-                    dither_type='none'
-                )
-
-        return clip
-
     def __init__(
         self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None, **kwargs: Any
     ) -> None:
@@ -105,9 +123,9 @@ class PyPlugin(Generic[FD_T]):
 
         self.out_format = ref_clip.format
 
-        self.ref_clip = self.norm_clip(ref_clip)
+        self.ref_clip = self.options.norm_clip(ref_clip)
 
-        self.clips = [self.norm_clip(clip) for clip in clips] if clips else []
+        self.clips = [self.options.norm_clip(clip) for clip in clips] if clips else []
 
         self.fd = self.filter_data(**kwargs) if self.filter_data else None  # type: ignore
 
