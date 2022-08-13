@@ -37,7 +37,7 @@ try:
         def get_dtype(self, clip: vs.VideoNode | vs.VideoFrame) -> dtype[Any]:
             if clip.format.id not in self._cache_dtypes:  # type: ignore
                 stype = 'float' if clip.format.sample_type is vs.FLOAT else 'uint'  # type: ignore
-                return dtype(f'{stype}{clip.format.bits_per_sample}')  # type: ignore
+                self._cache_dtypes[clip.format.id] = dtype(f'{stype}{clip.format.bits_per_sample}')  # type: ignore
 
             return self._cache_dtypes[clip.format.id]  # type: ignore
 
