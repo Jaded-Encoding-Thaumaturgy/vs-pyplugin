@@ -3,9 +3,11 @@ from __future__ import annotations
 from enum import IntEnum
 from functools import wraps
 from itertools import count
-from typing import Any, Callable, Generic, Literal, Type, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Type, TypeVar, cast, overload
 
 import vapoursynth as vs
+
+from .types import SupportsKeysAndGetItem
 
 __all__ = [
     'PyBackend', 'PyPlugin',
@@ -41,15 +43,21 @@ class PyBackend(IntEnum):
 
 _unavailable_backends = set[tuple[PyBackend, BaseException | None]]()
 
-FD_T = TypeVar('FD_T', bound=dict[str, Any] | None)
+FD_T = TypeVar('FD_T', bound=SupportsKeysAndGetItem[str, object] | None)
 F = TypeVar('F', bound=Callable[..., vs.VideoNode])
 
 
 class PyPlugin(Generic[FD_T]):
-    __slots__ = (
-        'backend', 'filter_data', 'clips', 'ref_clip', 'fd',
-        '_input_per_plane'
-    )
+    if TYPE_CHECKING:
+        __slots__ = (
+            'backend', 'filter_data', 'clips', 'ref_clip', 'fd',
+            '_input_per_plane', 'out_format', 'output_per_plane'
+        )
+    else:
+        __slots__ = (
+            'backend', 'filter_data', 'clips', 'ref_clip', 'fd',
+            '_input_per_plane'
+        )
 
     backend: PyBackend
     filter_data: Type[FD_T]
@@ -122,7 +130,7 @@ class PyPlugin(Generic[FD_T]):
     ) -> None:
         assert ref_clip.format
 
-        self.out_format = ref_clip.format  # type: ignore
+        self.out_format = ref_clip.format
 
         self.ref_clip = self.norm_clip(ref_clip)
 
@@ -145,7 +153,7 @@ class PyPlugin(Generic[FD_T]):
         self._input_per_plane = input_per_plane
 
         if ref_clip.format.num_planes == 1:
-            self.output_per_plane = True  # type: ignore
+            self.output_per_plane = True
 
         if n_clips < self.min_clips or (self.max_clips > 0 and n_clips > self.max_clips):
             max_clips = 'inf' if self.max_clips == -1 else self.max_clips

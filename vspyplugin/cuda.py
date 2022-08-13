@@ -155,7 +155,7 @@ try:
 
             block_x, block_y = self.get_kernel_size(width, height)
 
-            kernel_args = dict(
+            kernel_args = dict[str, Any](
                 use_shared_memory=self.use_shared_memory,
                 block_x=block_x, block_y=block_y,
                 data_type=get_c_dtype_long(self.ref_clip),
@@ -165,10 +165,11 @@ try:
                 peak_value=float(get_peak_value(self.ref_clip)),
             )
 
-            try:
-                kernel_args |= self.fd  # type: ignore
-            except BaseException:
-                ...
+            if self.fd:
+                try:
+                    kernel_args |= self.fd  # type: ignore
+                except BaseException:
+                    ...
 
             return kwargs | kernel_args | dict(width=width, height=height)
 

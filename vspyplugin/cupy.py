@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 import vapoursynth as vs
 
@@ -18,10 +18,15 @@ try:
     from cupy_backends.cuda.api import runtime  # type: ignore
 
     import cupy as cp
-    from cupy._core import concatenate_method as concatenate
+    from cupy import cuda
     from numpy.typing import NDArray
 
     from .numpy import PyPluginNumpy
+
+    if TYPE_CHECKING:
+        concatenate: Callable[..., NDArray[Any]]
+    else:
+        from cupy._core import concatenate_method as concatenate
 
     class PyPluginCupy(PyPluginNumpy[FD_T]):
         backend = this_backend
@@ -106,15 +111,15 @@ try:
             if self.cuda_num_streams != 0 and self.cuda_num_streams < 2:
                 raise ValueError(f'{self.__class__.__name__}: cuda_num_streams must be 0 or >= 2!')
 
-            self.cuda_device = cp.cuda.Device()
-            self.cuda_memory_pool = cp.cuda.MemoryPool()
+            self.cuda_device = cuda.Device()
+            self.cuda_memory_pool = cuda.MemoryPool()
 
-            cp.cuda.set_allocator(self.cuda_memory_pool.malloc)
+            cuda.set_allocator(self.cuda_memory_pool.malloc)
 
-            self.cuda_default_stream = cp.cuda.Stream(non_blocking=True)
-            self.cuda_streams = [cp.cuda.Stream(non_blocking=True) for _ in range(self.cuda_num_streams)]
+            self.cuda_default_stream = cuda.Stream(non_blocking=True)
+            self.cuda_streams = [cuda.Stream(non_blocking=True) for _ in range(self.cuda_num_streams)]
 
-            self.cuda_is_101 = 10010 <= cp.cuda.runtime.runtimeGetVersion()
+            self.cuda_is_101 = 10010 <= runtime.runtimeGetVersion()
 
             src_arrays = [self._alloc_arrays(clip) for clip in (self.ref_clip, *self.clips)]
             self.src_arrays = [
@@ -136,14 +141,14 @@ try:
                 stack_slice = (slice(None), slice(None), None)
 
                 def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
-                    return concatenate([  # type: ignore
+                    return concatenate([
                         self.to_device(frame, idx, 0)[stack_slice],
                         self.to_device(frame, idx, 1)[stack_slice],
                         self.to_device(frame, idx, 2)[stack_slice]
                     ], axis=2)
             else:
                 def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
-                    return concatenate([  # type: ignore
+                    return concatenate([
                         self.to_device(frame, idx, 0),
                         self.to_device(frame, idx, 1),
                         self.to_device(frame, idx, 2)

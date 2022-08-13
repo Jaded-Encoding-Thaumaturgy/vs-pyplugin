@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 import vapoursynth as vs
 
@@ -17,9 +17,13 @@ this_backend = PyBackend.NUMPY
 
 try:
     from numpy import dtype
-    from numpy.core._multiarray_umath import copyto as npcopyto  # type: ignore
-    from numpy.core.numeric import concatenate  # type: ignore
+    from numpy.core._multiarray_umath import copyto as npcopyto
     from numpy.typing import NDArray
+
+    if TYPE_CHECKING:
+        concatenate: Callable[..., NDArray[Any]]
+    else:
+        from numpy.core.numeric import concatenate
 
     class PyPluginNumpy(PyPlugin[FD_T]):
         backend = this_backend
@@ -35,11 +39,13 @@ try:
         _cache_dtypes = dict[int, dtype[Any]]()
 
         def get_dtype(self, clip: vs.VideoNode | vs.VideoFrame) -> dtype[Any]:
-            if clip.format.id not in self._cache_dtypes:  # type: ignore
-                stype = 'float' if clip.format.sample_type is vs.FLOAT else 'uint'  # type: ignore
-                self._cache_dtypes[clip.format.id] = dtype(f'{stype}{clip.format.bits_per_sample}')  # type: ignore
+            fmt = cast(vs.VideoFormat, clip.format)
 
-            return self._cache_dtypes[clip.format.id]  # type: ignore
+            if fmt.id not in self._cache_dtypes:
+                stype = 'float' if fmt.sample_type is vs.FLOAT else 'uint'
+                self._cache_dtypes[fmt.id] = dtype(f'{stype}{fmt.bits_per_sample}')
+
+            return self._cache_dtypes[fmt.id]
 
         def _get_data_len(self, arr: NDArray[Any]) -> int:
             return arr.shape[0] * arr.shape[1] * arr.dtype.itemsize
@@ -64,14 +70,14 @@ try:
                 stack_slice = (slice(None), slice(None), None)
 
                 def _stack_whole_frame(frame: vs.VideoFrame) -> NDArray[Any]:
-                    return concatenate([  # type: ignore
+                    return concatenate([
                         self.to_host(frame, 0)[stack_slice],
                         self.to_host(frame, 1)[stack_slice],
                         self.to_host(frame, 2)[stack_slice]
                     ], axis=2)
             else:
                 def _stack_whole_frame(frame: vs.VideoFrame) -> NDArray[Any]:
-                    return concatenate([  # type: ignore
+                    return concatenate([
                         self.to_host(frame, 0),
                         self.to_host(frame, 1),
                         self.to_host(frame, 2)

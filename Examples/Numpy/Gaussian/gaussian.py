@@ -19,10 +19,6 @@ class GaussianFilterData:
 
 
 class GaussianFilter(PyPluginNumpy[GaussianFilterData]):
-    float_processing = True
-    # channels_last = False
-    # output_per_plane = False
-
     def process(self, src: NDArray[Any], dst: NDArray[Any], plane: int | None, n: int) -> None:
         gaussian_filter(src, self.fd.sigma_v, output=dst)
 
