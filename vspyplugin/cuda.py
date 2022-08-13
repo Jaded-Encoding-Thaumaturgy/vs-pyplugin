@@ -166,9 +166,13 @@ try:
                 width=self.ref_clip.width, height=self.ref_clip.height,
                 use_shared_memory=self.use_shared_memory,
                 block_x=block_x, block_y=block_y,
-                data_type=get_c_dtype_long(self.ref_clip),
-                **self.fd
+                data_type=get_c_dtype_long(self.ref_clip)
             )
+
+            try:
+                kernel_args |= self.fd  # type: ignore
+            except BaseException:
+                ...
 
             if self.kernel_kwargs:
                 kernel_args |= self.kernel_kwargs

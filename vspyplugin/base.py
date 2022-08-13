@@ -8,7 +8,6 @@ import vapoursynth as vs
 
 __all__ = [
     'PyBackend', 'PyPlugin',
-    'GenericFilterData',
     'FD_T',
     'PyPluginUnavailableBackend'
 ]
@@ -41,12 +40,8 @@ class PyBackend(IntEnum):
 
 _unavailable_backends = set[tuple[PyBackend, BaseException | None]]()
 
-FD_T = TypeVar('FD_T')
+FD_T = TypeVar('FD_T', bound=dict[str, Any] | None)
 F = TypeVar('F', bound=Callable[..., vs.VideoNode])
-
-
-class GenericFilterData(dict[str, Any]):
-    ...
 
 
 class PyPlugin(Generic[FD_T]):
@@ -91,9 +86,6 @@ class PyPlugin(Generic[FD_T]):
         raise NotImplementedError
 
     def __class_getitem__(cls, fdata: Type[FD_T] | None = None) -> Type[PyPlugin[FD_T]]:
-        if fdata is None:
-            fdata = GenericFilterData  # type: ignore
-
         class PyPluginInnerClass(cls):  # type: ignore
             filter_data = fdata
 
@@ -129,16 +121,13 @@ class PyPlugin(Generic[FD_T]):
     ) -> None:
         assert ref_clip.format
 
-        if self.filter_data is None or isinstance(self.filter_data, TypeVar):
-            self.filter_data = GenericFilterData  # type: ignore
-
         self.out_format = ref_clip.format  # type: ignore
 
         self.ref_clip = self.norm_clip(ref_clip)
 
         self.clips = [self.norm_clip(clip) for clip in clips] if clips else []
 
-        self.fd = self.filter_data(**kwargs)
+        self.fd = self.filter_data(**kwargs) if self.filter_data else None  # type: ignore
 
         n_clips = 1 + len(self.clips)
 
