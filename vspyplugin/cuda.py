@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from string import Template
-from typing import TYPE_CHECKING, Any, Literal, Sequence, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, Sequence, TypeVar, cast
 
 import vapoursynth as vs
 
@@ -187,58 +187,11 @@ try:
 
             block_x, block_y = self.get_kernel_size()
 
-            kernel_args = dict(
-                width=self.ref_clip.width, height=self.ref_clip.height,
-                use_shared_memory=self.use_shared_memory,
-                block_x=block_x, block_y=block_y,
-                data_type=get_c_dtype_long(self.ref_clip)
-            )
-
-            try:
-                kernel_args |= self.fd  # type: ignore
-            except BaseException:
-                ...
-
-            if self.kernel_kwargs:
-                kernel_args |= self.kernel_kwargs
-
-            kernel_args = {
-                name: self.norm_kernel_args(value)
-                for name, value in kernel_args.items()
-            }
-
-            cuda_kernel_code = Template(self.cuda_kernel_code).substitute(kernel_args)
-
-            default_options = (
-                '-Xptxas', '-O3',
-            )
-
-            raw_kernel_kwargs = dict(
-                options=(*default_options, *self.cuda_flags.to_tuple()),
-                backend=self.cuda_options.backend,
-                translate_cucomplex=self.cuda_options.translate_cucomplex,
-                enable_cooperative_groups=self.cuda_options.enable_cooperative_groups,
-                jitify=self.cuda_options.jitify
-            )
-
-            self.kernel_functions = {
-                name: RawKernel(code=cuda_kernel_code, name=name, **raw_kernel_kwargs) for name in cuda_functions
-            }
-
-            for kernel in self.kernel_functions.values():
-                if self.cuda_options.max_dynamic_shared_size_bytes is not None:
-                    kernel.max_dynamic_shared_size_bytes = self.cuda_options.max_dynamic_shared_size_bytes
-
-                if self.cuda_options.preferred_shared_memory_carveout is not None:
-                    kernel.preferred_shared_memory_carveout = self.cuda_options.preferred_shared_memory_carveout
-
-                kernel.compile()
-
             def _wrap_kernel_function(
                 def_kernel_size: tuple[int, int],
                 def_block_size: tuple[int, int],
                 def_shared_mem: int, function: Any
-            ) -> Any:
+            ) -> CudaKernelFunction:
                 def _inner_function(
                     *args: Any,
                     kernel_size: tuple[int, int] = def_kernel_size,
@@ -247,7 +200,50 @@ try:
                 ) -> Any:
                     return function(kernel_size, block_size, args, shared_mem=shared_mem)
 
-                return _inner_function
+                return cast(CudaKernelFunction, _inner_function)
+
+            def _get_kernel_func(name: str, **kwargs: Any) -> CudaKernelFunction:
+                kernel_args = 
+
+                kernel_args |= kwargs
+
+                kernel_args = {
+                    name: self.norm_kernel_args(value)
+                    for name, value in kernel_args.items()
+                }
+
+                cuda_kernel_code = Template(self.cuda_kernel_code).substitute(kernel_args)
+
+                default_options = ('-Xptxas', '-O3')
+
+                raw_kernel_kwargs = dict(
+                    options=(*default_options, *self.cuda_flags.to_tuple()),
+                    backend=self.cuda_options.backend,
+                    translate_cucomplex=self.cuda_options.translate_cucomplex,
+                    enable_cooperative_groups=self.cuda_options.enable_cooperative_groups,
+                    jitify=self.cuda_options.jitify
+                )
+
+                kernel = RawKernel(code=cuda_kernel_code, name=name, **raw_kernel_kwargs)
+
+                if self.cuda_options.max_dynamic_shared_size_bytes is not None:
+                    kernel.max_dynamic_shared_size_bytes = self.cuda_options.max_dynamic_shared_size_bytes
+
+                if self.cuda_options.preferred_shared_memory_carveout is not None:
+                    kernel.preferred_shared_memory_carveout = self.cuda_options.preferred_shared_memory_carveout
+
+                kernel.compile()
+
+                return _wrap_kernel_function(
+                    def_kernel_size, (block_x, block_y), def_shared_mem, kernel
+                )
+
+            resolutions = {
+                (self.ref_clip.width, self.ref_clip.height), (
+                    self.ref_clip.width // max(1, self.ref_clip.format.subsampling_w),
+                    self.ref_clip.height // max(1, self.ref_clip.format.subsampling_h)
+                )
+            }
 
             block_x, block_y = self.get_kernel_size()
 
@@ -259,10 +255,16 @@ try:
                 block_x, block_y, self.ref_clip.format.bytes_per_sample
             ) if self.use_shared_memory else 0
 
+            kernel_functions = {
+                name: [
+                    _get_kernel_func(name, width=width, height=height)
+                    for width, height in resolutions
+                ] for name in cuda_functions
+            }
+
             self.kernel = CudaKernelFunctions(**{
-                name: _wrap_kernel_function(
-                    def_kernel_size, (block_x, block_y), def_shared_mem, function
-                ) for name, function in self.kernel_functions.items()
+                name: CudaKernelFunctionPlanes(funcs[0], funcs)
+                for name, funcs in kernel_functions.items()
             })
 
     this_backend.set_available(True)
