@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 
 import vapoursynth as vs
 
-from .base import FD_T, PyBackend, PyPlugin, PyPluginUnavailableBackend
+from .backends import PyBackend
+from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
 from .coroutines import frame_eval_async, gathers, get_frame, get_frames
 
 __all__ = [

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from .base import PyBackend, PyPlugin
+from .backends import PyBackend
+from .base import PyPlugin
 
 
 class UnavailableBackend(ValueError):

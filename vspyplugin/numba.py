@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from .base import FD_T, PyBackend, PyPlugin, PyPluginUnavailableBackend
+from .backends import PyBackend
+from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
 
 __all__ = [
     'PyPluginNumba'

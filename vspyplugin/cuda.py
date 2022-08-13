@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Any, Literal, Sequence, TypeVar, cast
 
 import vapoursynth as vs
 
-from .base import FD_T, PyBackend, PyPluginUnavailableBackend
+from .backends import PyBackend
+from .base import FD_T, PyPluginUnavailableBackend
 from .utils import get_c_dtype_long
 
 __all__ = [
