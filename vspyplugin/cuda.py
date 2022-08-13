@@ -4,25 +4,19 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from string import Template
-from typing import Any, Literal, NamedTuple, Type, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence
 
 import vapoursynth as vs
 
-from .base import FD_T, GenericFilterData, PyBackend, PyPluginUnavailableBackend
+from .base import FD_T, PyBackend, PyPluginUnavailableBackend
 from .utils import get_c_dtype_long
 
 __all__ = [
     'PyPluginCuda',
-    'CudaFunctions',
     'CudaCompileFlags', 'CudaOptions'
 ]
 
 this_backend = PyBackend.CUDA
-
-
-CF_T = TypeVar('CF_T')
-
-CudaFunctions = NamedTuple
 
 
 @dataclass
@@ -61,11 +55,21 @@ try:
     from cupy import RawKernel
 
     from .cupy import PyPluginCupy
+    from numpy.typing import NDArray
 
-    class PyPluginCuda(PyPluginCupy[FD_T, CF_T]):  # type: ignore
+    class CudaKernelFunctions:
+        def __init__(self, **kwargs: Any) -> None:
+            for key, func in kwargs.items():
+                setattr(self, key, func)
+
+        if TYPE_CHECKING:
+            def __getattribute__(self, __name: str) -> Callable[[NDArray[Any], NDArray[Any]], None]:
+                ...
+
+    class PyPluginCuda(PyPluginCupy[FD_T]):
         backend = this_backend
 
-        cuda_kernel: str | Path
+        cuda_kernel: tuple[str | Path, str | Sequence[str]]
 
         kernel_size: int | tuple[int, int] = 16
 
@@ -76,27 +80,7 @@ try:
 
         kernel_kwargs: dict[str, Any]
 
-        kernel_type: Type[CF_T]
-        kernel: CF_T
-
-        def __class_getitem__(  # type: ignore
-            cls, fdata: tuple[Type[FD_T], Type[CF_T]] | None = None
-        ) -> Type[PyPluginCuda[FD_T, CF_T]]:
-            if fdata is None:
-                raise RuntimeError(f'{cls.__class__.__name__}: You must specify the Cuda kernel functions!')
-
-            if isinstance(fdata, tuple):
-                filter_dtype = cast(Any, fdata[0])
-                kernel_dtype = fdata[1]
-            else:
-                filter_dtype = GenericFilterData  # type: ignore
-                kernel_dtype = fdata[0]
-
-            class PyPluginCudaInnerClass(cls):  # type: ignore
-                filter_data = filter_dtype
-                kernel_type = kernel_dtype
-
-            return PyPluginCudaInnerClass
+        kernel: CudaKernelFunctions
 
         @lru_cache
         def calc_shared_mem(self, blk_size_w: int, blk_size_h: int, dtype_size: int) -> int:
@@ -139,17 +123,19 @@ try:
             if not hasattr(self, 'cuda_kernel'):
                 raise RuntimeError(f'{self.__class__.__name__}: You\'re missing cuda_kernel!')
 
-            if isinstance(self.cuda_kernel, Path):
-                cuda_path = self.cuda_kernel
-            else:
-                cuda_path = Path(self.cuda_kernel)
+            cuda_path, cuda_functions = self.cuda_kernel
+            if isinstance(cuda_functions, str):
+                cuda_functions = [cuda_functions]
+
+            if not isinstance(cuda_path, Path):
+                cuda_path = Path(cuda_path)
 
             cuda_path = cuda_path.absolute().resolve()
 
             if cuda_path.exists():
                 cuda_kernel_code = cuda_path.read_text()
-            elif isinstance(self.cuda_kernel, str):
-                cuda_kernel_code = self.cuda_kernel
+            elif isinstance(self.cuda_kernel[0], str):
+                cuda_kernel_code = self.cuda_kernel[0]
 
             if cuda_kernel_code:
                 cuda_kernel_code = cuda_kernel_code.strip()
@@ -197,8 +183,7 @@ try:
             )
 
             self.kernel_functions = {
-                name: RawKernel(code=cuda_kernel_code, name=name, **raw_kernel_kwargs)
-                for name in self.kernel_type.__annotations__.keys()
+                name: RawKernel(code=cuda_kernel_code, name=name, **raw_kernel_kwargs) for name in cuda_functions
             }
 
             for kernel in self.kernel_functions.values():
@@ -235,7 +220,7 @@ try:
                 block_x, block_y, self.ref_clip.format.bytes_per_sample
             ) if self.use_shared_memory else 0
 
-            self.kernel = self.kernel_type(**{
+            self.kernel = CudaKernelFunctions(**{
                 name: _wrap_kernel_function(
                     def_kernel_size, (block_x, block_y), def_shared_mem, function
                 ) for name, function in self.kernel_functions.items()
