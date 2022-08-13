@@ -193,7 +193,7 @@ try:
                                 for idx, frame in enumerate(frames)
                             ]
 
-                            self.process(inputs_data, dst_stacked_planes[p], n)
+                            self.process(inputs_data, dst_stacked_planes[p], p, n)
 
                         self.from_device(dst_stacked_arr, fout)
 
@@ -206,7 +206,7 @@ try:
                             fout = ref_frame.copy()
 
                             for p in range(fout.format.num_planes):
-                                self.process(self.to_device(ref_frame, 0, p), dst_stacked_planes[p], n)
+                                self.process(self.to_device(ref_frame, 0, p), dst_stacked_planes[p], p, n)
 
                             self.from_device(dst_stacked_arr, fout)
 
@@ -220,7 +220,7 @@ try:
                             pre_stacked_clip = _stack_frame(ref_frame, 0)
 
                             for p in range(fout.format.num_planes):
-                                self.process(pre_stacked_clip, dst_stacked_planes[p], n)
+                                self.process(pre_stacked_clip, dst_stacked_planes[p], p, n)
 
                             self.from_device(dst_stacked_arr, fout)
 
@@ -239,7 +239,7 @@ try:
                             inner_stack(clip, n, idx) for idx, clip in enumerate(self.clips, 1)
                         )
 
-                        self.process(src_arrays, dst_stacked_arr, n)
+                        self.process(src_arrays, dst_stacked_arr, None, n)
                         self.from_device(dst_stacked_arr, fout)
 
                         return fout
@@ -249,7 +249,7 @@ try:
                         frame = await get_frame(self.ref_clip, n)
                         fout = frame.copy()
 
-                        self.process(_stack_whole_frame(frame, 0), dst_stacked_arr, n)
+                        self.process(_stack_whole_frame(frame, 0), dst_stacked_arr, None, n)
                         self.from_device(dst_stacked_arr, fout)
 
                         return fout

@@ -23,7 +23,7 @@ class GaussianFilter(PyPluginNumpy[GaussianFilterData]):
     # channels_last = False
     # output_per_plane = False
 
-    def process(self, src: NDArray[Any], dst: NDArray[Any], n: int) -> None:
+    def process(self, src: NDArray[Any], dst: NDArray[Any], plane: int | None, n: int) -> None:
         gaussian_filter(src, self.fd.sigma_v, output=dst)
 
 

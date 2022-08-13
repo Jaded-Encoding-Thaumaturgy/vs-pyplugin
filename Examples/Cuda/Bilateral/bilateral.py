@@ -22,7 +22,7 @@ class BilateralFilter(PyPluginCuda[GenericFilterData, BilateralCudaKernel]):
     kernel_size = 16
     use_shared_memory = True
 
-    def process(self, src: NDArray[Any], dst: NDArray[Any], n: int) -> None:
+    def process(self, src: NDArray[Any], dst: NDArray[Any], plane: int | None, n: int) -> None:
         self.kernel.bilateral(src, dst)
 
     @lru_cache

@@ -87,7 +87,7 @@ class PyPlugin(Generic[FD_T]):
 
         return cast(F, _wrapper)
 
-    def process(self, src: Any, dst: Any, n: int) -> None:
+    def process(self, src: Any, dst: Any, plane: int | None, n: int) -> None:
         raise NotImplementedError
 
     def __class_getitem__(cls, fdata: Type[FD_T] | None = None) -> Type[PyPlugin[FD_T]]:
