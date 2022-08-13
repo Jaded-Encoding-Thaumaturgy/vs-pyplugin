@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from enum import IntEnum
 from functools import wraps
+from itertools import count
 from typing import Any, Callable, Generic, Literal, Type, TypeVar, cast, overload
 
 import vapoursynth as vs
@@ -156,6 +157,14 @@ class PyPlugin(Generic[FD_T]):
             raise ValueError(
                 f'{class_name}: You can\'t have output_per_plane=False with a subsampled clip!'
             )
+
+        for idx, clip, ipp in zip(count(-1), (self.ref_clip, *self.clips), self._input_per_plane):
+            assert clip.format
+            if not ipp and (clip.format.subsampling_w or clip.format.subsampling_h):
+                clip_type = 'Ref Clip' if idx == -1 else f'Clip Index: {idx}'
+                raise ValueError(
+                    f'{class_name}: You can\'t have input_per_plane=False with a subsampled clip! ({clip_type})'
+                )
 
     def invoke(self) -> vs.VideoNode:
         raise NotImplementedError
