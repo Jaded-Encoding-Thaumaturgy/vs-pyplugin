@@ -19,8 +19,9 @@ __all__ = [
 class PyBackend(IntEnum):
     NUMPY = 0
     CUPY = 1
-    CYTHON = 2
-    CUDA = 3
+    CUDA = 2
+    CYTHON = 3
+    NUMBA = 4
 
     def set_available(self, is_available: bool, e: BaseException | None = None) -> None:
         if not is_available:
