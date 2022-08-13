@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import vapoursynth as vs
 
@@ -18,6 +18,7 @@ this_backend = PyBackend.NUMPY
 try:
     from numpy import dtype
     from numpy.core._multiarray_umath import copyto as npcopyto  # type: ignore
+    from numpy.core.numeric import concatenate, newaxis  # type: ignore
     from numpy.typing import NDArray
 
     class PyPluginNumpy(PyPlugin[FD_T]):
@@ -59,7 +60,22 @@ try:
         def invoke(self) -> vs.VideoNode:
             assert self.ref_clip.format
 
-            stack_axis = 2 if self.channels_last else 0
+            if self.channels_last:
+                stack_slice = (slice(None), slice(None), newaxis)
+
+                def _stack_whole_frame(frame: vs.VideoFrame) -> NDArray[Any]:
+                    return concatenate([  # type: ignore
+                        self.to_host(frame, 0)[stack_slice],
+                        self.to_host(frame, 1)[stack_slice],
+                        self.to_host(frame, 2)[stack_slice]
+                    ], axis=2)
+            else:
+                def _stack_whole_frame(frame: vs.VideoFrame) -> NDArray[Any]:
+                    return concatenate([  # type: ignore
+                        self.to_host(frame, 0),
+                        self.to_host(frame, 1),
+                        self.to_host(frame, 2)
+                    ], axis=0)
 
             is_single_plane = [
                 bool(clip.format and clip.format.num_planes == 1)
@@ -70,7 +86,7 @@ try:
                 if is_single_plane[idx]:
                     return self.to_host(frame, 0)
 
-                return np.stack(frame, axis=stack_axis)  # type: ignore
+                return _stack_whole_frame(frame)
 
             if self.output_per_plane:
                 if self.clips:
@@ -153,10 +169,9 @@ try:
                             frame = await get_frame(self.ref_clip, n)
                             fout = frame.copy()
 
-                            src = np.stack(frame, axis=stack_axis)  # type: ignore
-                            dst = np.stack(fout, axis=stack_axis)  # type: ignore
+                            dst = _stack_whole_frame(fout)
 
-                            self.process(src, dst, n)
+                            self.process(_stack_whole_frame(frame), dst, n)
 
                             self.from_host(dst, fout)
 
