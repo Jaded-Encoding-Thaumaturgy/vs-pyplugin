@@ -5,7 +5,7 @@ from typing import Any, cast
 import vapoursynth as vs
 
 from .base import FD_T, PyBackend, PyPlugin, PyPluginUnavailableBackend
-from .helpers import frame_eval_async, gather, get_frame, get_frames
+from .helpers import frame_eval_async, gathers, get_frame, get_frames
 
 __all__ = [
     'PyPluginCupy'
@@ -235,9 +235,9 @@ try:
                         frame = await get_frame(self.ref_clip, n)
                         fout = frame.copy()
 
-                        src_arrays = await gather(*(
+                        src_arrays = await gathers(
                             inner_stack(clip, n, idx) for idx, clip in enumerate(self.clips, 1)
-                        ))
+                        )
 
                         self.process(src_arrays, dst_stacked_arr, n)
                         self.from_device(dst_stacked_arr, fout)

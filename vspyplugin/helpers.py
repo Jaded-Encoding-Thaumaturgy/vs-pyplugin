@@ -17,7 +17,7 @@ __all__ = [
     'Atom',
 
     'get_frame', 'get_frames', 'get_frames_shifted',
-    'gather',
+    'gather', 'gathers',
 
     'frame_eval', 'frame_eval_async',
 
@@ -123,7 +123,7 @@ async def get_frame(clip: vs.VideoNode, frame_no: int) -> vs.VideoFrame:
 
 
 async def get_frames(*clips: vs.VideoNode, frame_no: int) -> tuple[vs.VideoFrame, ...]:
-    return await gather(*(get_frame(clip, frame_no) for clip in clips))
+    return await gathers(get_frame(clip, frame_no) for clip in clips)
 
 
 async def get_frames_shifted(
@@ -137,15 +137,15 @@ async def get_frames_shifted(
         step = -1 if stop < start else 1
         shifts = range(start, stop + step, step)
 
-    coroutines = (
-        get_frame(clip, frame_no + shift) for shift in shifts
-    )
-
-    return await gather(*coroutines)
+    return await gathers(get_frame(clip, frame_no + shift) for shift in shifts)
 
 
 async def gather(*coroutines: AnyCoroutine[S, T]) -> tuple[T, ...]:
     return await GatherRequests(coroutines)
+
+
+async def gathers(coroutines: Iterable[AnyCoroutine[S, T]]) -> tuple[T, ...]:
+    return await GatherRequests(tuple(coroutines))
 
 
 def _wrapped_modify_frame(blank_clip: vs.VideoNode) -> Callable[[vs.VideoFrame], vs.VideoNode]:
