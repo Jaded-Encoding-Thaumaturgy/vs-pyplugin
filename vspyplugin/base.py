@@ -51,7 +51,8 @@ class GenericFilterData(dict[str, Any]):
 
 class PyPlugin(Generic[FD_T]):
     __slots__ = (
-        'backend', 'filter_data', 'clips', 'ref_clip', 'fd'
+        'backend', 'filter_data', 'clips', 'ref_clip', 'fd',
+        '_input_per_plane'
     )
 
     backend: PyBackend
@@ -143,10 +144,28 @@ class PyPlugin(Generic[FD_T]):
 
         class_name = self.__class__.__name__
 
+        input_per_plane = self.input_per_plane
+
+        if not isinstance(input_per_plane, list):
+            input_per_plane = [input_per_plane]
+
+        for _ in range((1 + len(self.clips)) - len(input_per_plane)):
+            input_per_plane.append(input_per_plane[-1])
+
+        self._input_per_plane = input_per_plane
+
+        if ref_clip.format.num_planes == 1:
+            self.output_per_plane = True  # type: ignore
+
         if n_clips < self.min_clips or (self.max_clips > 0 and n_clips > self.max_clips):
             max_clips = 'inf' if self.max_clips == -1 else self.max_clips
             raise ValueError(
                 f'{class_name}: You must pass {self.min_clips} <= n clips <= {max_clips}!'
+            )
+
+        if not self.output_per_plane and (ref_clip.format.subsampling_w or ref_clip.format.subsampling_h):
+            raise ValueError(
+                f'{class_name}: You can\'t have output_per_plane=False with a subsampled clip!'
             )
 
     def invoke(self) -> vs.VideoNode:
