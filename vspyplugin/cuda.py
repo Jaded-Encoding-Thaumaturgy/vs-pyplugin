@@ -97,7 +97,7 @@ try:
             return self.planes_functions[plane]
 
     class CudaKernelFunctions:
-        def __init__(self, **kwargs: Any) -> None:
+        def __init__(self, **kwargs: CudaKernelFunctionPlanes) -> None:
             for key, func in kwargs.items():
                 setattr(self, key, func)
 
