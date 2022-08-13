@@ -40,6 +40,8 @@ try:
             stype = 'float' if clip.format.sample_type is vs.FLOAT else 'uint'
             bps = clip.format.bits_per_sample
             return dtype(f'{stype}{bps}')
+        def _get_data_len(self, arr: NDArray[Any]) -> int:
+            return arr.shape[0] * arr.shape[1] * arr.dtype.itemsize
 
         @PyPlugin.ensure_output
         def invoke(self) -> vs.VideoNode:

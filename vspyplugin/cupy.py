@@ -89,10 +89,7 @@ try:
             ]
 
         def _get_data_len(self, arr: NDArray[Any]) -> int:
-            return round(
-                (arr.shape[0] * arr.shape[1] * arr.dtype.itemsize)
-                / max(1, self.cuda_num_streams)
-            )
+            return round(super()._get_data_len(arr) / max(1, self.cuda_num_streams))
 
         def __init__(
             self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None, **kwargs: Any
