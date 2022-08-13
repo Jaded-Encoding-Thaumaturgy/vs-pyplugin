@@ -55,9 +55,9 @@ class CudaOptions:
 
 try:
     from cupy import RawKernel
+    from numpy.typing import NDArray
 
     from .cupy import PyPluginCupy
-    from numpy.typing import NDArray
 
     class CudaKernelFunction:
         def __call__(
@@ -78,7 +78,7 @@ try:
             else:
                 self.planes_functions = planes_functions
 
-            self.planes_functions += self.planes_functions[:-1] * (3 - len(self.planes_functions))
+            self.planes_functions += self.planes_functions[-1:] * (3 - len(self.planes_functions))
 
         if TYPE_CHECKING:
             def __call__(
