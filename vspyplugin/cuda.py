@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, Any, Literal, Sequence, TypeVar, cast
 import vapoursynth as vs
 
 from .backends import PyBackend
-from .base import FD_T, PyPluginUnavailableBackend
+from .base import FD_T, PyPluginOptions, PyPluginUnavailableBackend
 from .utils import get_c_dtype_long
 
 __all__ = [
     'PyPluginCuda',
-    'CudaCompileFlags', 'CudaOptions'
+    'CudaCompileFlags', 'PyPluginCudaOptions'
 ]
 
 this_backend = PyBackend.CUDA
@@ -45,7 +45,8 @@ class CudaCompileFlags:
 
 
 @dataclass
-class CudaOptions:
+class PyPluginCudaOptions(PyPluginOptions):
+    compile_flags: CudaCompileFlags = CudaCompileFlags()
     backend: Literal['nvrtc', 'nvcc'] = 'nvrtc'
     translate_cucomplex: bool = False
     enable_cooperative_groups: bool = False
@@ -115,8 +116,7 @@ try:
 
         use_shared_memory: bool = False
 
-        cuda_options: CudaOptions = CudaOptions()
-        cuda_flags: CudaCompileFlags = CudaCompileFlags()
+        options: PyPluginCudaOptions = PyPluginCudaOptions()
 
         kernel_kwargs: dict[str, Any]
 
@@ -250,20 +250,20 @@ try:
                 default_options = ('-Xptxas', '-O3')
 
                 raw_kernel_kwargs = dict(
-                    options=(*default_options, *self.cuda_flags.to_tuple()),
-                    backend=self.cuda_options.backend,
-                    translate_cucomplex=self.cuda_options.translate_cucomplex,
-                    enable_cooperative_groups=self.cuda_options.enable_cooperative_groups,
-                    jitify=self.cuda_options.jitify
+                    options=(*default_options, *self.options.compile_flags.to_tuple()),
+                    backend=self.options.backend,
+                    translate_cucomplex=self.options.translate_cucomplex,
+                    enable_cooperative_groups=self.options.enable_cooperative_groups,
+                    jitify=self.options.jitify
                 )
 
                 kernel = RawKernel(code=sub_kernel_code, name=name, **raw_kernel_kwargs)
 
-                if self.cuda_options.max_dynamic_shared_size_bytes is not None:
-                    kernel.max_dynamic_shared_size_bytes = self.cuda_options.max_dynamic_shared_size_bytes
+                if self.options.max_dynamic_shared_size_bytes is not None:
+                    kernel.max_dynamic_shared_size_bytes = self.options.max_dynamic_shared_size_bytes
 
-                if self.cuda_options.preferred_shared_memory_carveout is not None:
-                    kernel.preferred_shared_memory_carveout = self.cuda_options.preferred_shared_memory_carveout
+                if self.options.preferred_shared_memory_carveout is not None:
+                    kernel.preferred_shared_memory_carveout = self.options.preferred_shared_memory_carveout
 
                 kernel.compile()
 
