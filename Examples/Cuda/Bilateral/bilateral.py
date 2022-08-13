@@ -15,11 +15,15 @@ core = vs.core
 class BilateralFilter(PyPluginCuda[None]):
     cuda_kernel = './bilateral.cu', 'bilateral'
 
+    input_per_plane = True
+    output_per_plane = True
+    float_processing = True
+
     kernel_size = 16
     use_shared_memory = True
 
     def process(self, src: NDArray[Any], dst: NDArray[Any], plane: int | None, n: int) -> None:
-        self.kernel.bilateral(src, dst)
+        self.kernel.bilateral[plane](src, dst)
 
     @lru_cache
     def calc_shared_mem(self, blk_size_w: int, blk_size_h: int, dtype_size: int) -> int:
@@ -29,11 +33,6 @@ class BilateralFilter(PyPluginCuda[None]):
         from math import e, log2
 
         assert clip.format
-
-        if clip.format.num_planes != 1:
-            raise ValueError(
-                'BilateralFilter: this concept isn\'t cool enough to work with YUV, GRAY only!'
-            )
 
         sigmaS_scaled, sigmaR_scaled = [(-0.5 / (val * val)) * log2(e) for val in (sigmaS, sigmaR)]
 
@@ -62,7 +61,8 @@ def bilateral(
 # From my benchmarks, it's 2x faster with real numbers, just 6% in the vacuum (BlankClip, with zeroes)
 
 src = source(r"E:\Desktop\Encoding Sources\[BDMV] Takagi-San 3\TAKAGISAN3_1\BDMV\STREAM\00003.m2ts", 8, matrix_prop=1)
-src = src.std.ShufflePlanes(0, vs.GRAY)
+# src = src.std.ShufflePlanes(0, vs.GRAY)
+src = src.resize.Bicubic(format=vs.YUV444P8)
 
 # src = src.std.BlankClip(keep=True, length=100000)
 
