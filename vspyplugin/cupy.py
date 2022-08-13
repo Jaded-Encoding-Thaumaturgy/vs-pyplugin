@@ -45,7 +45,7 @@ try:
                             stream.ptr
                         )
 
-                    stop_events.append(stream.record())
+                    stop_events.append(cuda.Event())
 
                 for stop_event in stop_events:
                     self.cuda_default_stream.wait_event(stop_event)
@@ -75,7 +75,7 @@ try:
                                 stream.ptr
                             )
 
-                            stop_events.append(stream.record())
+                            stop_events.append(cuda.Event())
 
                     for stop_event in stop_events:
                         self.cuda_default_stream.wait_event(stop_event)
