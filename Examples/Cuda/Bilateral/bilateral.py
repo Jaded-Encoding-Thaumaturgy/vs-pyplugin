@@ -24,7 +24,7 @@ class BilateralFilter(PyPluginCuda[None]):
         self.kernel.bilateral[plane](src, dst)
 
     @lru_cache
-    def calc_shared_mem(self, blk_size_w: int, blk_size_h: int, dtype_size: int) -> int:
+    def calc_shared_mem(self, plane: int, blk_size_w: int, blk_size_h: int, dtype_size: int) -> int:
         return (2 * self.bil_radius + blk_size_w) * (2 * self.bil_radius + blk_size_h) * dtype_size
 
     def __init__(self, clip: vs.VideoNode, sigmaS: float, sigmaR: float, radius: int | None) -> None:

@@ -123,17 +123,17 @@ try:
         kernel: CudaKernelFunctions
 
         @lru_cache
-        def calc_shared_mem(self, blk_size_w: int, blk_size_h: int, dtype_size: int) -> int:
+        def calc_shared_mem(self, plane: int, blk_size_w: int, blk_size_h: int, dtype_size: int) -> int:
             return blk_size_w * blk_size_h * dtype_size
 
         @lru_cache
         def normalize_kernel_size(
-            self, blk_size_w: int, blk_size_h: int, width: int, height: int
+            self, plane: int, blk_size_w: int, blk_size_h: int, width: int, height: int
         ) -> tuple[int, int]:
             return ((width + blk_size_w - 1) // blk_size_w, (height + blk_size_h - 1) // blk_size_h)
 
         @lru_cache
-        def get_kernel_size(self, width: int, height: int) -> tuple[int, int]:
+        def get_kernel_size(self, plane: int, width: int, height: int) -> tuple[int, int]:
             if isinstance(self.kernel_size, tuple):
                 block_x, block_y = self.kernel_size
             else:
@@ -154,7 +154,7 @@ try:
 
             assert self.ref_clip.format
 
-            block_x, block_y = self.get_kernel_size(width, height)
+            block_x, block_y = self.get_kernel_size(plane, width, height)
 
             kernel_args = dict[str, Any](
                 use_shared_memory=self.use_shared_memory,
@@ -255,11 +255,11 @@ try:
                 block_x, block_y = self.get_kernel_size(width, height)
 
                 def_kernel_size = self.normalize_kernel_size(
-                    block_x, block_y, self.ref_clip.width, self.ref_clip.height
+                    plane, block_x, block_y, self.ref_clip.width, self.ref_clip.height
                 )
 
                 def_shared_mem = self.calc_shared_mem(
-                    block_x, block_y, self.ref_clip.format.bytes_per_sample
+                    plane, block_x, block_y, self.ref_clip.format.bytes_per_sample
                 ) if self.use_shared_memory else 0
 
                 sub_kernel_code = Template(cuda_kernel_code).substitute(kernel_args)
