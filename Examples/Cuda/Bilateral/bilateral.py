@@ -1,23 +1,19 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Callable
+from typing import Any
 
 import vapoursynth as vs
 from numpy.typing import NDArray
 from stgfunc import set_output, source
-from vspyplugin import CudaFunctions, GenericFilterData, PyPluginCuda
+from vspyplugin import PyPluginCuda
 from vsutil import get_peak_value
 
 core = vs.core
 
 
-class BilateralCudaKernel(CudaFunctions):
-    bilateral: Callable[[BilateralCudaKernel, NDArray[Any], NDArray[Any]], None]
-
-
-class BilateralFilter(PyPluginCuda[GenericFilterData, BilateralCudaKernel]):
-    cuda_kernel = './bilateral.cu'
+class BilateralFilter(PyPluginCuda[None]):
+    cuda_kernel = './bilateral.cu', 'bilateral'
 
     kernel_size = 16
     use_shared_memory = True
