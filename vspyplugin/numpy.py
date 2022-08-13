@@ -7,7 +7,7 @@ import vapoursynth as vs
 import numpy as np
 
 from .base import FD_T, PyBackend, PyPlugin, PyPluginUnavailableBackend
-from .helpers import frame_eval_async, gather, get_frame
+from .helpers import frame_eval_async, get_frame, get_frames
 
 __all__ = [
     'PyPluginNumpy'
@@ -62,10 +62,8 @@ try:
                 if self.clips:
                     @frame_eval_async(self.ref_clip)
                     async def output(n: int) -> vs.VideoFrame:
-                        ref_frame = await get_frame(self.ref_clip, n)
-                        fout = ref_frame.copy()
-
-                        frames = [ref_frame, *(await gather(*(get_frame(c, n) for c in self.clips)))]
+                        frames = await get_frames(self.ref_clip, *self.clips, frame_no=n)
+                        fout = frames[0].copy()
 
                         pre_stacked_clips = {
                             idx: _stack_frame(frame, idx)
@@ -113,10 +111,8 @@ try:
                 if self.clips:
                     @frame_eval_async(self.ref_clip)
                     async def output(n: int) -> vs.VideoFrame:
-                        ref_frame = await get_frame(self.ref_clip, n)
-                        fout = ref_frame.copy()
-
-                        frames = [ref_frame, *(await gather(*(get_frame(c, n) for c in self.clips)))]
+                        frames = await get_frames(self.ref_clip, *self.clips, frame_no=n)
+                        fout = frames[0].copy()
 
                         src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(frames)]
 
