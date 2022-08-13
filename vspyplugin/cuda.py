@@ -243,6 +243,7 @@ try:
                 assert self.ref_clip.format and cuda_kernel_code and kernel_kwargs
 
                 kernel_args = self.get_kernel_args(plane, width, height, **kernel_kwargs)
+                block_sizes: tuple[int, int] = kernel_args['block_x'], kernel_args['block_y']
 
                 if kernel_planes_kwargs and (p_kwargs := kernel_planes_kwargs[plane]):
                     kernel_args |= p_kwargs
@@ -252,14 +253,12 @@ try:
                     for name, value in kernel_args.items()
                 }
 
-                block_x, block_y = self.get_kernel_size(width, height)
-
                 def_kernel_size = self.normalize_kernel_size(
-                    plane, block_x, block_y, self.ref_clip.width, self.ref_clip.height
+                    plane, *block_sizes, self.ref_clip.width, self.ref_clip.height
                 )
 
                 def_shared_mem = self.calc_shared_mem(
-                    plane, block_x, block_y, self.ref_clip.format.bytes_per_sample
+                    plane, *block_sizes, self.ref_clip.format.bytes_per_sample
                 ) if self.use_shared_memory else 0
 
                 sub_kernel_code = Template(cuda_kernel_code).substitute(kernel_args)
@@ -278,7 +277,7 @@ try:
                     kernel.compile()
 
                     _cache_kernel_funcs[kernel_key] = _wrap_kernel_function(
-                        def_kernel_size, (block_x, block_y), def_shared_mem, kernel
+                        def_kernel_size, block_sizes, def_shared_mem, kernel
                     )
 
                 return _cache_kernel_funcs[kernel_key]
