@@ -138,6 +138,10 @@ try:
 
                             return fout
             else:
+                dst_stacked_arr = np.zeros(
+                    (self.ref_clip.height, self.ref_clip.width, 3), self.get_dtype(self.ref_clip)
+                )
+
                 if self.clips:
                     @frame_eval_async(self.ref_clip)
                     async def output(n: int) -> vs.VideoFrame:
@@ -146,11 +150,9 @@ try:
 
                         src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(frames)]
 
-                        out_array = np.zeros_like(src_arrays[0])
+                        self.process(src_arrays, dst_stacked_arr, n)
 
-                        self.process(src_arrays, out_array, n)
-
-                        self.from_host(out_array, fout)
+                        self.from_host(dst_stacked_arr, fout)
 
                         return fout
                 else:
@@ -169,11 +171,9 @@ try:
                             frame = await get_frame(self.ref_clip, n)
                             fout = frame.copy()
 
-                            dst = _stack_whole_frame(fout)
+                            self.process(_stack_whole_frame(frame), dst_stacked_arr, n)
 
-                            self.process(_stack_whole_frame(frame), dst, n)
-
-                            self.from_host(dst, fout)
+                            self.from_host(dst_stacked_arr, fout)
 
                             return fout
 
