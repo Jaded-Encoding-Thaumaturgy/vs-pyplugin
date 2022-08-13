@@ -5,6 +5,7 @@ from typing import Any, cast
 import vapoursynth as vs
 
 from .base import FD_T, PyBackend, PyPlugin, PyPluginUnavailableBackend
+from .helpers import frame_eval_async, get_frame, get_frames
 
 __all__ = [
     'PyPluginCupy'
@@ -14,19 +15,21 @@ this_backend = PyBackend.CUPY
 
 
 try:
+    from cupy_backends.cuda.api import runtime  # type: ignore
+
     import cupy as cp
+    from cupy import newaxis
+    from cupy._core import concatenate_method as concatenate
     from numpy.typing import NDArray
 
     from .numpy import PyPluginNumpy
-
-    from cupy_backends.cuda.api import runtime  # type: ignore
 
     class PyPluginCupy(PyPluginNumpy[FD_T]):
         backend = this_backend
 
         cuda_num_streams: int = 0
 
-        def to_device(self, f: vs.VideoFrame, idx: int, plane: int) -> None:
+        def to_device(self, f: vs.VideoFrame, idx: int, plane: int) -> NDArray[Any]:
             if self.cuda_num_streams:
                 stop_events = []
                 for stream in self.cuda_streams:
@@ -49,32 +52,31 @@ try:
                     self.src_data_lengths[plane][idx], runtime.memcpyHostToDevice
                 )
 
-        def from_device(self, f: vs.VideoFrame, plane: int) -> None:
-            if self.cuda_num_streams:
-                stop_events = []
-                for stream in self.cuda_streams:
-                    with stream:
-                        runtime.memcpyAsync(
-                            int(self.out_arrays[plane].data),
-                            f.get_write_ptr(plane).value,
-                            self.out_data_lengths[plane],
-                            runtime.memcpyHostToDevice,
-                            stream.ptr
-                        )
+            return self.src_arrays[plane][idx]
 
-                        stop_events.append(stream.record())
+        def from_device(self, src: NDArray[Any], dst: vs.VideoFrame) -> None:
+            for plane in range(dst.format.num_planes):
+                if self.cuda_num_streams:
+                    stop_events = []
+                    for stream in self.cuda_streams:
+                        with stream:
+                            runtime.memcpyAsync(
+                                dst.get_write_ptr(plane).value, int(src[self._slice_idxs[plane]].data),
+                                self.out_data_lengths[plane], runtime.memcpyHostToDevice,
+                                stream.ptr
+                            )
 
-                for stop_event in stop_events:
-                    self.cuda_default_stream.wait_event(stop_event)
+                            stop_events.append(stream.record())
 
-                self.cuda_device.synchronize()
-            else:
-                runtime.memcpy(
-                    f.get_write_ptr(plane).value,
-                    int(self.out_arrays[plane].data),
-                    self.out_data_lengths[plane],
-                    runtime.memcpyDeviceToHost
-                )
+                    for stop_event in stop_events:
+                        self.cuda_default_stream.wait_event(stop_event)
+
+                    self.cuda_device.synchronize()
+                else:
+                    runtime.memcpy(
+                        dst.get_write_ptr(plane).value, int(src[self._slice_idxs[plane]].data),
+                        self.out_data_lengths[plane], runtime.memcpyDeviceToHost
+                    )
 
         def _alloc_arrays(self, clip: vs.VideoNode) -> list[NDArray[Any]]:
             assert clip.format
@@ -108,71 +110,146 @@ try:
 
             self.cuda_default_stream = cp.cuda.Stream(non_blocking=True)
             self.cuda_streams = [cp.cuda.Stream(non_blocking=True) for _ in range(self.cuda_num_streams)]
+
             self.cuda_is_101 = 10010 <= cp.cuda.runtime.runtimeGetVersion()
 
             src_arrays = [self._alloc_arrays(clip) for clip in (self.ref_clip, *self.clips)]
             self.src_arrays = [
                 [array[plane] for array in src_arrays] for plane in range(self.ref_clip.format.num_planes)
             ]
-            self.out_arrays = self._alloc_arrays(self.ref_clip)
-
             self.src_data_lengths = [[self._get_data_len(a) for a in arr] for arr in self.src_arrays]
+
+            self.out_arrays = self._alloc_arrays(self.ref_clip)
             self.out_data_lengths = [self._get_data_len(arr) for arr in self.out_arrays]
 
         @PyPlugin.ensure_output
         def invoke(self) -> vs.VideoNode:
             assert self.ref_clip.format
 
-            n_clips = 1 + len(self.clips)
+            if self.ref_clip.format.num_planes == 1:
+                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
+                    return self.to_device(frame, idx, 0)
+            elif self.channels_last:
+                stack_slice = (slice(None), slice(None), newaxis)
 
-            function: Any
-
-            if self.out_format.num_planes > 1 or self.out_format.subsampling_w or self.out_format.subsampling_h:
-                if n_clips == 1:
-                    def function(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-                        fout = f.copy()
-
-                        for p in range(fout.format.num_planes):
-                            self.to_device(f, 0, p)
-                            self.process(self.src_arrays[p][0], self.out_arrays[p], n)
-                            self.from_device(fout, p)
-
-                        return fout
-                else:
-                    def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-                        fout = f[0].copy()
-
-                        for p in range(fout.format.num_planes):
-                            for i, frame in enumerate(f):
-                                self.to_device(frame, i, p)
-
-                            self.process(self.src_arrays[p], self.out_arrays[p], n)
-                            self.from_device(fout, p)
-
-                        return fout
+                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
+                    return concatenate([  # type: ignore
+                        self.to_device(frame, idx, 0)[stack_slice],
+                        self.to_device(frame, idx, 1)[stack_slice],
+                        self.to_device(frame, idx, 2)[stack_slice]
+                    ], axis=2)
             else:
-                if n_clips == 1:
-                    def function(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-                        fout = f.copy()
+                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
+                    return concatenate([  # type: ignore
+                        self.to_device(frame, idx, 0),
+                        self.to_device(frame, idx, 1),
+                        self.to_device(frame, idx, 2)
+                    ], axis=0)
 
-                        self.to_device(f, 0, 0)
-                        self.process(self.src_arrays[0][0], self.out_arrays[0], n)
-                        self.from_device(fout, 0)
+            is_single_plane = [
+                bool(clip.format and clip.format.num_planes == 1)
+                for clip in (self.ref_clip, *self.clips)
+            ]
+
+            def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
+                if is_single_plane[idx]:
+                    return self.to_device(frame, idx, 0)
+
+                return _stack_whole_frame(frame, idx)
+
+            shape = (self.ref_clip.height, self.ref_clip.width)
+
+            shape_channels: tuple[int, ...]
+            if is_single_plane[0]:
+                shape_channels = shape + (1, )
+            elif self.channels_last:
+                shape_channels = shape + (3, )
+            else:
+                shape_channels = (3, ) + shape
+
+            dst_stacked_arr = cp.zeros(shape_channels, self.get_dtype(self.ref_clip))
+            dst_stacked_planes = [
+                dst_stacked_arr[self._slice_idxs[p]] for p in range(self.ref_clip.format.num_planes)
+            ]
+
+            if self.output_per_plane:
+                if self.clips:
+                    @frame_eval_async(self.ref_clip)
+                    async def output(n: int) -> vs.VideoFrame:
+                        frames = await get_frames(self.ref_clip, *self.clips, frame_no=n)
+                        fout = frames[0].copy()
+
+                        pre_stacked_clips = {
+                            idx: _stack_frame(frame, idx)
+                            for idx, frame in enumerate(frames)
+                            if not self._input_per_plane[idx]
+                        }
+
+                        for p in range(fout.format.num_planes):
+                            inputs_data = [
+                                self.to_device(frame, idx, p)
+                                if self._input_per_plane[idx]
+                                else pre_stacked_clips[idx]
+                                for idx, frame in enumerate(frames)
+                            ]
+
+                            self.process(inputs_data, dst_stacked_planes[p], n)
+
+                        self.from_device(dst_stacked_arr, fout)
 
                         return fout
                 else:
-                    def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-                        fout = f[0].copy()
+                    if self._input_per_plane[0]:
+                        @frame_eval_async(self.ref_clip)
+                        async def output(n: int) -> vs.VideoFrame:
+                            ref_frame = await get_frame(self.ref_clip, n)
+                            fout = ref_frame.copy()
 
-                        for i, frame in enumerate(f):
-                            self.to_device(frame, i, 0)
+                            for p in range(fout.format.num_planes):
+                                self.process(self.to_device(ref_frame, 0, p), dst_stacked_planes[p], n)
 
-                        self.process(self.src_arrays[0], self.out_arrays[0], n)
-                        self.from_device(fout, 0)
+                            self.from_device(dst_stacked_arr, fout)
+
+                            return fout
+                    else:
+                        @frame_eval_async(self.ref_clip)
+                        async def output(n: int) -> vs.VideoFrame:
+                            ref_frame = await get_frame(self.ref_clip, n)
+                            fout = ref_frame.copy()
+
+                            pre_stacked_clip = _stack_frame(ref_frame, 0)
+
+                            for p in range(fout.format.num_planes):
+                                self.process(pre_stacked_clip, dst_stacked_planes[p], n)
+
+                            self.from_device(dst_stacked_arr, fout)
+
+                            return fout
+            else:
+                if self.clips:
+                    @frame_eval_async(self.ref_clip)
+                    async def output(n: int) -> vs.VideoFrame:
+                        frames = await get_frames(self.ref_clip, *self.clips, frame_no=n)
+                        fout = frames[0].copy()
+
+                        src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(frames)]
+
+                        self.process(src_arrays, dst_stacked_arr, n)
+                        self.from_device(dst_stacked_arr, fout)
+
+                        return fout
+                else:
+                    @frame_eval_async(self.ref_clip)
+                    async def output(n: int) -> vs.VideoFrame:
+                        frame = await get_frame(self.ref_clip, n)
+                        fout = frame.copy()
+
+                        self.process(_stack_whole_frame(frame, 0), dst_stacked_arr, n)
+                        self.from_device(dst_stacked_arr, fout)
 
                         return fout
 
-            return self.ref_clip.std.ModifyFrame((self.ref_clip, *self.clips), function)
+            return output
 
     this_backend.set_available(True)
 except BaseException as e:
