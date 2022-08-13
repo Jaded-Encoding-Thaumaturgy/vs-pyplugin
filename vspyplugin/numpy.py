@@ -17,22 +17,19 @@ this_backend = PyBackend.NUMPY
 
 try:
     from numpy import dtype
-    from numpy.core._multiarray_umath import array as nparray  # type: ignore
-    from numpy.core._multiarray_umath import copyto as npcopyto
+    from numpy.core._multiarray_umath import copyto as npcopyto  # type: ignore
     from numpy.typing import NDArray
 
     class PyPluginNumpy(PyPlugin[FD_T]):
         backend = this_backend
 
-        def to_host(self, f: vs.VideoFrame, plane: int, copy: bool = False) -> NDArray[Any]:
-            return nparray(f[plane], copy=copy)  # type: ignore
+        def to_host(self, f: vs.VideoFrame, plane: int) -> NDArray[Any]:
+            p = f[plane]
+            return np.ndarray(p.shape, self.get_dtype(f), p)  # type: ignore
 
-        def from_host(self, src: Any, dst: vs.VideoFrame, copy: bool = False) -> None:
+        def from_host(self, src: NDArray[Any], dst: vs.VideoFrame) -> None:
             for plane in range(dst.format.num_planes):
-                npcopyto(
-                    nparray(dst[plane], copy=copy),
-                    src[:, :, plane] if self.channels_last else src[plane, :, :]
-                )
+                npcopyto(self.to_host(dst, plane), src[self._slice_idxs[plane]])
 
         _cache_dtypes = dict[int, dtype[Any]]()
 
@@ -45,6 +42,18 @@ try:
 
         def _get_data_len(self, arr: NDArray[Any]) -> int:
             return arr.shape[0] * arr.shape[1] * arr.dtype.itemsize
+
+        def __init__(self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None, **kwargs: Any) -> None:
+            no_slice = slice(None, None, None)
+            self._slice_idxs = cast(list[slice], [
+                (
+                    [plane, no_slice][self.channels_last],
+                    no_slice,
+                    [no_slice, plane][self.channels_last]
+                ) for plane in range(3)
+            ])
+
+            super().__init__(ref_clip, clips, **kwargs)
 
         @PyPlugin.ensure_output
         def invoke(self) -> vs.VideoNode:
