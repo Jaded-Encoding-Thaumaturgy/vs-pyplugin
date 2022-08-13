@@ -176,13 +176,19 @@ try:
 
         def __init__(
             self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None,
-            kernel_kwargs: dict[str, Any] | None = None, **kwargs: Any
+            kernel_kwargs: dict[str, Any] | None = None,
+            kernel_planes_kwargs: list[dict[str, Any] | None] | None = None,
+            **kwargs: Any
         ) -> None:
             super().__init__(ref_clip, clips, **kwargs)
+
             assert self.ref_clip.format
 
             if kernel_kwargs is None:
                 kernel_kwargs = {}
+
+            if kernel_planes_kwargs:
+                kernel_planes_kwargs += kernel_planes_kwargs[-1:] * (3 - len(kernel_planes_kwargs))
 
             if not hasattr(self, 'cuda_kernel'):
                 raise RuntimeError(f'{self.__class__.__name__}: You\'re missing cuda_kernel!')
@@ -238,8 +244,8 @@ try:
 
                 kernel_args = self.get_kernel_args(plane, width, height, **kernel_kwargs)
 
-                if kernel_planes_kwargs:
-                    kernel_args |= kernel_planes_kwargs[plane]
+                if kernel_planes_kwargs and (p_kwargs := kernel_planes_kwargs[plane]):
+                    kernel_args |= p_kwargs
 
                 kernel_args = {
                     name: self.norm_kernel_args(value)
