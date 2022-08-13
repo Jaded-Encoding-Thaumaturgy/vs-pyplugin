@@ -131,7 +131,8 @@ try:
         ) -> tuple[int, int]:
             return ((width + blk_size_w - 1) // blk_size_w, (height + blk_size_h - 1) // blk_size_h)
 
-        def get_kernel_size(self) -> tuple[int, int]:
+        @lru_cache
+        def get_kernel_size(self, width: int, height: int) -> tuple[int, int]:
             if isinstance(self.kernel_size, tuple):
                 block_x, block_y = self.kernel_size
             else:
@@ -146,6 +147,22 @@ try:
                 return string.lower()
 
             return string
+
+        def get_kernel_args(self, width: int, height: int, **kwargs: Any) -> dict[str, Any]:
+            block_x, block_y = self.get_kernel_size(width, height)
+
+            kernel_args = dict(
+                use_shared_memory=self.use_shared_memory,
+                block_x=block_x, block_y=block_y,
+                data_type=get_c_dtype_long(self.ref_clip)
+            )
+
+            try:
+                kernel_args |= self.fd  # type: ignore
+            except BaseException:
+                ...
+
+            return kwargs | kernel_args | dict(width=width, height=height)
 
         def __init__(
             self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None,
@@ -182,11 +199,6 @@ try:
             if not cuda_kernel_code:
                 raise RuntimeError(f'{self.__class__.__name__}: Cuda Kernel code not found!')
 
-            self.cuda_kernel_code = cuda_kernel_code
-            self.kernel_kwargs = kernel_kwargs
-
-            block_x, block_y = self.get_kernel_size()
-
             def _wrap_kernel_function(
                 def_kernel_size: tuple[int, int],
                 def_block_size: tuple[int, int],
@@ -202,17 +214,29 @@ try:
 
                 return cast(CudaKernelFunction, _inner_function)
 
-            def _get_kernel_func(name: str, **kwargs: Any) -> CudaKernelFunction:
-                kernel_args = 
+            def _get_kernel_func(name: str, width: int, height: int) -> CudaKernelFunction:
+                nonlocal cuda_kernel_code
 
-                kernel_args |= kwargs
+                assert self.ref_clip.format and cuda_kernel_code and kernel_kwargs
+
+                kernel_args = self.get_kernel_args(width, height, **kernel_kwargs)
 
                 kernel_args = {
                     name: self.norm_kernel_args(value)
                     for name, value in kernel_args.items()
                 }
 
-                cuda_kernel_code = Template(self.cuda_kernel_code).substitute(kernel_args)
+                block_x, block_y = self.get_kernel_size(width, height)
+
+                def_kernel_size = self.normalize_kernel_size(
+                    block_x, block_y, self.ref_clip.width, self.ref_clip.height
+                )
+
+                def_shared_mem = self.calc_shared_mem(
+                    block_x, block_y, self.ref_clip.format.bytes_per_sample
+                ) if self.use_shared_memory else 0
+
+                sub_kernel_code = Template(cuda_kernel_code).substitute(kernel_args)
 
                 default_options = ('-Xptxas', '-O3')
 
@@ -224,7 +248,7 @@ try:
                     jitify=self.cuda_options.jitify
                 )
 
-                kernel = RawKernel(code=cuda_kernel_code, name=name, **raw_kernel_kwargs)
+                kernel = RawKernel(code=sub_kernel_code, name=name, **raw_kernel_kwargs)
 
                 if self.cuda_options.max_dynamic_shared_size_bytes is not None:
                     kernel.max_dynamic_shared_size_bytes = self.cuda_options.max_dynamic_shared_size_bytes
@@ -244,16 +268,6 @@ try:
                     self.ref_clip.height // max(1, self.ref_clip.format.subsampling_h)
                 )
             }
-
-            block_x, block_y = self.get_kernel_size()
-
-            def_kernel_size = self.normalize_kernel_size(
-                block_x, block_y, self.ref_clip.width, self.ref_clip.height
-            )
-
-            def_shared_mem = self.calc_shared_mem(
-                block_x, block_y, self.ref_clip.format.bytes_per_sample
-            ) if self.use_shared_memory else 0
 
             kernel_functions = {
                 name: [
