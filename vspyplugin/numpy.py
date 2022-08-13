@@ -18,7 +18,7 @@ this_backend = PyBackend.NUMPY
 try:
     from numpy import dtype
     from numpy.core._multiarray_umath import copyto as npcopyto  # type: ignore
-    from numpy.core.numeric import concatenate, newaxis  # type: ignore
+    from numpy.core.numeric import concatenate  # type: ignore
     from numpy.typing import NDArray
 
     class PyPluginNumpy(PyPlugin[FD_T]):
@@ -61,7 +61,7 @@ try:
             assert self.ref_clip.format
 
             if self.channels_last:
-                stack_slice = (slice(None), slice(None), newaxis)
+                stack_slice = (slice(None), slice(None), None)
 
                 def _stack_whole_frame(frame: vs.VideoFrame) -> NDArray[Any]:
                     return concatenate([  # type: ignore

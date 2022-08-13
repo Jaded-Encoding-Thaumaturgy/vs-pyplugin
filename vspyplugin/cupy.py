@@ -18,7 +18,6 @@ try:
     from cupy_backends.cuda.api import runtime  # type: ignore
 
     import cupy as cp
-    from cupy import newaxis
     from cupy._core import concatenate_method as concatenate
     from numpy.typing import NDArray
 
@@ -134,7 +133,7 @@ try:
                 def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
                     return self.to_device(frame, idx, 0)
             elif self.channels_last:
-                stack_slice = (slice(None), slice(None), newaxis)
+                stack_slice = (slice(None), slice(None), None)
 
                 def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
                     return concatenate([  # type: ignore
