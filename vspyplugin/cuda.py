@@ -149,7 +149,7 @@ try:
 
             return string
 
-        def get_kernel_args(self, width: int, height: int, **kwargs: Any) -> dict[str, Any]:
+        def get_kernel_args(self, plane: int, width: int, height: int, **kwargs: Any) -> dict[str, Any]:
             from vsutil import get_peak_value, get_lowest_value, get_neutral_value
 
             assert self.ref_clip.format
@@ -223,12 +223,23 @@ try:
 
                 return cast(CudaKernelFunction, _inner_function)
 
-            def _get_kernel_func(name: str, width: int, height: int) -> CudaKernelFunction:
-                nonlocal cuda_kernel_code
+            raw_kernel_kwargs = dict(
+                options=('-Xptxas', '-O3', *self.options.compile_flags.to_tuple()),
+                backend=self.options.backend,
+                translate_cucomplex=self.options.translate_cucomplex,
+                enable_cooperative_groups=self.options.enable_cooperative_groups,
+                jitify=self.options.jitify
+            )
 
+            _cache_kernel_funcs = dict[tuple[int, str], CudaKernelFunction]()
+
+            def _get_kernel_func(name: str, plane: int, width: int, height: int) -> CudaKernelFunction:
                 assert self.ref_clip.format and cuda_kernel_code and kernel_kwargs
 
-                kernel_args = self.get_kernel_args(width, height, **kernel_kwargs)
+                kernel_args = self.get_kernel_args(plane, width, height, **kernel_kwargs)
+
+                if kernel_planes_kwargs:
+                    kernel_args |= kernel_planes_kwargs[plane]
 
                 kernel_args = {
                     name: self.norm_kernel_args(value)
@@ -247,41 +258,36 @@ try:
 
                 sub_kernel_code = Template(cuda_kernel_code).substitute(kernel_args)
 
-                default_options = ('-Xptxas', '-O3')
+                kernel_key = hash(sub_kernel_code), name
 
-                raw_kernel_kwargs = dict(
-                    options=(*default_options, *self.options.compile_flags.to_tuple()),
-                    backend=self.options.backend,
-                    translate_cucomplex=self.options.translate_cucomplex,
-                    enable_cooperative_groups=self.options.enable_cooperative_groups,
-                    jitify=self.options.jitify
-                )
+                if kernel_key not in _cache_kernel_funcs:
+                    kernel = RawKernel(code=sub_kernel_code, name=name, **raw_kernel_kwargs)
 
-                kernel = RawKernel(code=sub_kernel_code, name=name, **raw_kernel_kwargs)
+                    if self.options.max_dynamic_shared_size_bytes is not None:
+                        kernel.max_dynamic_shared_size_bytes = self.options.max_dynamic_shared_size_bytes
 
-                if self.options.max_dynamic_shared_size_bytes is not None:
-                    kernel.max_dynamic_shared_size_bytes = self.options.max_dynamic_shared_size_bytes
+                    if self.options.preferred_shared_memory_carveout is not None:
+                        kernel.preferred_shared_memory_carveout = self.options.preferred_shared_memory_carveout
 
-                if self.options.preferred_shared_memory_carveout is not None:
-                    kernel.preferred_shared_memory_carveout = self.options.preferred_shared_memory_carveout
+                    kernel.compile()
 
-                kernel.compile()
+                    _cache_kernel_funcs[kernel_key] = _wrap_kernel_function(
+                        def_kernel_size, (block_x, block_y), def_shared_mem, kernel
+                    )
 
-                return _wrap_kernel_function(
-                    def_kernel_size, (block_x, block_y), def_shared_mem, kernel
-                )
+                return _cache_kernel_funcs[kernel_key]
 
-            resolutions = {
-                (self.ref_clip.width, self.ref_clip.height), (
-                    self.ref_clip.width // max(1, self.ref_clip.format.subsampling_w),
-                    self.ref_clip.height // max(1, self.ref_clip.format.subsampling_h)
-                )
-            }
+            chroma_res = (
+                self.ref_clip.width // max(1, self.ref_clip.format.subsampling_w),
+                self.ref_clip.height // max(1, self.ref_clip.format.subsampling_h)
+            )
+
+            resolutions = [(0, self.ref_clip.width, self.ref_clip.height), (1, *chroma_res), (2, *chroma_res)]
 
             kernel_functions = {
                 name: [
-                    _get_kernel_func(name, width=width, height=height)
-                    for width, height in resolutions
+                    _get_kernel_func(name, plane, width, height)
+                    for plane, width, height in resolutions
                 ] for name in cuda_functions
             }
 
