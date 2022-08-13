@@ -7,7 +7,6 @@ import vapoursynth as vs
 from numpy.typing import NDArray
 from stgfunc import set_output, source
 from vspyplugin import PyPluginCuda
-from vsutil import get_peak_value
 
 core = vs.core
 
@@ -17,7 +16,6 @@ class BilateralFilter(PyPluginCuda[None]):
 
     input_per_plane = True
     output_per_plane = True
-    float_processing = True
 
     kernel_size = 16
     use_shared_memory = True
@@ -44,8 +42,6 @@ class BilateralFilter(PyPluginCuda[None]):
         return super().__init__(
             clip, kernel_kwargs=dict(
                 sigmaS=sigmaS_scaled, sigmaR=sigmaR_scaled,
-                is_float=clip.format.sample_type is vs.FLOAT,
-                peak=float(get_peak_value(clip)),
                 radius=self.bil_radius
             )
         )

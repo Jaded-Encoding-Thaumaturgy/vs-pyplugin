@@ -5,7 +5,7 @@ __device__ static const float sigmaR = ${sigmaR};
 __device__ static const int radius = ${radius};
 __device__ static const bool use_shared_memory = ${use_shared_memory};
 __device__ static const bool is_float = ${is_float};
-__device__ static const float peak = ${peak};
+__device__ static const float peak = ${peak_value};
 
 __device__ static const int kernel_size_x = 2 * radius + ${block_x};
 __device__ static const int kernel_size_y = 2 * radius + ${block_y};
