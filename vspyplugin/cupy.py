@@ -19,6 +19,8 @@ try:
 
     from .numpy import PyPluginNumpy
 
+    from cupy_backends.cuda.api import runtime  # type: ignore
+
     class PyPluginCupy(PyPluginNumpy[FD_T]):
         backend = this_backend
 
@@ -28,9 +30,12 @@ try:
             if self.cuda_num_streams:
                 stop_events = []
                 for stream in self.cuda_streams:
-                    self.src_arrays[plane][idx].data.copy_from_host_async(  # type: ignore
-                        f.get_read_ptr(plane), self.src_data_lengths[plane][idx], stream
-                    )
+                    with stream:
+                        runtime.memcpyAsync(
+                            int(self.src_arrays[plane][idx].data), f.get_read_ptr(plane).value,
+                            self.src_data_lengths[plane][idx], runtime.memcpyHostToDevice,
+                            stream.ptr
+                        )
 
                     stop_events.append(stream.record())
 
@@ -39,27 +44,36 @@ try:
 
                 self.cuda_device.synchronize()
             else:
-                self.src_arrays[plane][idx].data.copy_from_host(  # type: ignore
-                    f.get_read_ptr(plane), self.src_data_lengths[plane][idx]
+                runtime.memcpy(
+                    int(self.src_arrays[plane][idx].data), f.get_read_ptr(plane).value,
+                    self.src_data_lengths[plane][idx], runtime.memcpyHostToDevice
                 )
 
         def from_device(self, f: vs.VideoFrame, plane: int) -> None:
             if self.cuda_num_streams:
                 stop_events = []
                 for stream in self.cuda_streams:
-                    self.out_arrays[plane].data.copy_to_host_async(  # type: ignore
-                        f.get_write_ptr(plane), self.out_data_lengths[plane], stream
-                    )
+                    with stream:
+                        runtime.memcpyAsync(
+                            int(self.out_arrays[plane].data),
+                            f.get_write_ptr(plane).value,
+                            self.out_data_lengths[plane],
+                            runtime.memcpyHostToDevice,
+                            stream.ptr
+                        )
 
-                    stop_events.append(stream.record())
+                        stop_events.append(stream.record())
 
                 for stop_event in stop_events:
                     self.cuda_default_stream.wait_event(stop_event)
 
                 self.cuda_device.synchronize()
             else:
-                self.out_arrays[plane].data.copy_to_host(  # type: ignore
-                    f.get_write_ptr(plane), self.out_data_lengths[plane]
+                runtime.memcpy(
+                    f.get_write_ptr(plane).value,
+                    int(self.out_arrays[plane].data),
+                    self.out_data_lengths[plane],
+                    runtime.memcpyDeviceToHost
                 )
 
         def _alloc_arrays(self, clip: vs.VideoNode) -> list[NDArray[Any]]:
