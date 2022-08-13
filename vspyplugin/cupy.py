@@ -5,7 +5,7 @@ from typing import Any, cast
 import vapoursynth as vs
 
 from .base import FD_T, PyBackend, PyPlugin, PyPluginUnavailableBackend
-from .helpers import frame_eval_async, get_frame, get_frames
+from .helpers import frame_eval_async, gather, get_frame, get_frames
 
 __all__ = [
     'PyPluginCupy'
@@ -227,12 +227,17 @@ try:
                             return fout
             else:
                 if self.clips:
+                    async def inner_stack(clip: vs.VideoNode, n: int, idx: int) -> NDArray[Any]:
+                        return _stack_frame(await get_frame(clip, n), idx)
+
                     @frame_eval_async(self.ref_clip)
                     async def output(n: int) -> vs.VideoFrame:
-                        frames = await get_frames(self.ref_clip, *self.clips, frame_no=n)
-                        fout = frames[0].copy()
+                        frame = await get_frame(self.ref_clip, n)
+                        fout = frame.copy()
 
-                        src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(frames)]
+                        src_arrays = await gather(*(
+                            inner_stack(clip, n, idx) for idx, clip in enumerate(self.clips, 1)
+                        ))
 
                         self.process(src_arrays, dst_stacked_arr, n)
                         self.from_device(dst_stacked_arr, fout)
