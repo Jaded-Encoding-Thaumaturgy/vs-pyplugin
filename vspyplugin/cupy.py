@@ -70,7 +70,7 @@ try:
                     for stream in self.cuda_streams:
                         with stream:
                             runtime.memcpyAsync(
-                                dst.get_write_ptr(plane).value, int(source.data),
+                                int(source.data), dst.get_write_ptr(plane).value,
                                 self.out_data_lengths[plane], runtime.memcpyHostToDevice,
                                 stream.ptr
                             )
