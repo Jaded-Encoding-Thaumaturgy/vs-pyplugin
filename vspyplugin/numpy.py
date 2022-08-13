@@ -34,12 +34,15 @@ try:
                     src[:, :, plane] if self.channels_last else src[plane, :, :]
                 )
 
-        def get_dtype(self, clip: vs.VideoNode) -> dtype[Any]:
-            assert clip.format
+        _cache_dtypes = dict[int, dtype[Any]]()
 
-            stype = 'float' if clip.format.sample_type is vs.FLOAT else 'uint'
-            bps = clip.format.bits_per_sample
-            return dtype(f'{stype}{bps}')
+        def get_dtype(self, clip: vs.VideoNode | vs.VideoFrame) -> dtype[Any]:
+            if clip.format.id not in self._cache_dtypes:  # type: ignore
+                stype = 'float' if clip.format.sample_type is vs.FLOAT else 'uint'  # type: ignore
+                return dtype(f'{stype}{clip.format.bits_per_sample}')  # type: ignore
+
+            return self._cache_dtypes[clip.format.id]  # type: ignore
+
         def _get_data_len(self, arr: NDArray[Any]) -> int:
             return arr.shape[0] * arr.shape[1] * arr.dtype.itemsize
 
