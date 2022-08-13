@@ -4,7 +4,10 @@ from typing import Any
 
 import vapoursynth as vs
 
+import numpy as np
+
 from .base import FD_T, PyBackend, PyPlugin, PyPluginUnavailableBackend
+from .helpers import frame_eval_async, gather, get_frame
 
 __all__ = [
     'PyPluginNumpy'
@@ -16,15 +19,20 @@ try:
     from numpy import dtype
     from numpy.core._multiarray_umath import array as nparray  # type: ignore
     from numpy.core._multiarray_umath import copyto as npcopyto
+    from numpy.typing import NDArray
 
     class PyPluginNumpy(PyPlugin[FD_T]):
         backend = this_backend
 
-        def to_host(self, f: vs.VideoFrame, plane: int, copy: bool = False) -> Any:
-            return nparray(f[plane], copy=copy)
+        def to_host(self, f: vs.VideoFrame, plane: int, copy: bool = False) -> NDArray[Any]:
+            return nparray(f[plane], copy=copy)  # type: ignore
 
-        def from_host(self, src: Any, dst: vs.VideoFrame, plane: int, copy: bool = False) -> Any:
-            return npcopyto(nparray(dst[plane], copy=copy), src)
+        def from_host(self, src: Any, dst: vs.VideoFrame, copy: bool = False) -> None:
+            for plane in range(dst.format.num_planes):
+                npcopyto(
+                    nparray(dst[plane], copy=copy),
+                    src[:, :, plane] if self.channels_last else src[plane, :, :]
+                )
 
         def get_dtype(self, clip: vs.VideoNode) -> dtype[Any]:
             assert clip.format
@@ -37,44 +45,114 @@ try:
         def invoke(self) -> vs.VideoNode:
             assert self.ref_clip.format
 
-            n_clips = 1 + len(self.clips)
+            stack_axis = 2 if self.channels_last else 0
 
-            function: Any
+            is_single_plane = [
+                bool(clip.format and clip.format.num_planes == 1)
+                for clip in (self.ref_clip, *self.clips)
+            ]
 
-            if self.out_format.num_planes > 1 or self.out_format.subsampling_w or self.out_format.subsampling_h:
-                if n_clips == 1:
-                    def function(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-                        fout = f.copy()
+            def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
+                if is_single_plane[idx]:
+                    return self.to_host(frame, 0)
+
+                return np.stack(frame, axis=stack_axis)  # type: ignore
+
+            if self.output_per_plane:
+                if self.clips:
+                    @frame_eval_async(self.ref_clip)
+                    async def output(n: int) -> vs.VideoFrame:
+                        ref_frame = await get_frame(self.ref_clip, n)
+                        fout = ref_frame.copy()
+
+                        frames = [ref_frame, *(await gather(*(get_frame(c, n) for c in self.clips)))]
+
+                        pre_stacked_clips = {
+                            idx: _stack_frame(frame, idx)
+                            for idx, frame in enumerate(frames)
+                            if not self._input_per_plane[idx]
+                        }
 
                         for p in range(fout.format.num_planes):
-                            self.process(self.to_host(f, p), self.to_host(fout, p), n)
+                            output_array = self.to_host(fout, p)
+
+                            inputs_data = [
+                                self.to_host(frame, p)
+                                if self._input_per_plane[idx]
+                                else pre_stacked_clips[idx]
+                                for idx, frame in enumerate(frames)
+                            ]
+
+                            self.process(inputs_data, output_array, n)
 
                         return fout
                 else:
-                    def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-                        fout = f[0].copy()
+                    if self._input_per_plane[0]:
+                        @frame_eval_async(self.ref_clip)
+                        async def output(n: int) -> vs.VideoFrame:
+                            ref_frame = await get_frame(self.ref_clip, n)
+                            fout = ref_frame.copy()
 
-                        for p in range(fout.format.num_planes):
-                            self.process([self.to_host(frame, p) for frame in f], self.to_host(fout, p), n)
+                            for p in range(fout.format.num_planes):
+                                self.process(self.to_host(ref_frame, p), self.to_host(fout, p), n)
 
-                        return fout
+                            return fout
+                    else:
+                        @frame_eval_async(self.ref_clip)
+                        async def output(n: int) -> vs.VideoFrame:
+                            ref_frame = await get_frame(self.ref_clip, n)
+                            fout = ref_frame.copy()
+
+                            pre_stacked_clip = _stack_frame(ref_frame, 0)
+
+                            for p in range(fout.format.num_planes):
+                                self.process(pre_stacked_clip, self.to_host(fout, p), n)
+
+                            return fout
             else:
-                if n_clips == 1:
-                    def function(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-                        fout = f.copy()
+                if self.clips:
+                    @frame_eval_async(self.ref_clip)
+                    async def output(n: int) -> vs.VideoFrame:
+                        ref_frame = await get_frame(self.ref_clip, n)
+                        fout = ref_frame.copy()
 
-                        self.process(self.to_host(f, 0), self.to_host(fout, 0), n)
+                        frames = [ref_frame, *(await gather(*(get_frame(c, n) for c in self.clips)))]
+
+                        src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(frames)]
+
+                        out_array = np.zeros_like(src_arrays[0])
+
+                        self.process(src_arrays, out_array, n)
+
+                        self.from_host(out_array, fout)
 
                         return fout
                 else:
-                    def function(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-                        fout = f[0].copy()
+                    if self.ref_clip.format.num_planes == 1:
+                        @frame_eval_async(self.ref_clip)
+                        async def output(n: int) -> vs.VideoFrame:
+                            frame = await get_frame(self.ref_clip, n)
+                            fout = frame.copy()
 
-                        self.process([self.to_host(frame, 0) for frame in f], self.to_host(fout, 0), n)
+                            self.process(self.to_host(frame, 0), self.to_host(fout, 0), n)
 
-                        return fout
+                            return fout
+                    else:
+                        @frame_eval_async(self.ref_clip)
+                        async def output(n: int) -> vs.VideoFrame:
+                            frame = await get_frame(self.ref_clip, n)
+                            fout = frame.copy()
 
-            return self.ref_clip.std.ModifyFrame((self.ref_clip, *self.clips), function)
+                            src = np.stack(frame, axis=stack_axis)  # type: ignore
+                            dst = np.stack(fout, axis=stack_axis)  # type: ignore
+
+                            self.process(src, dst, n)
+
+                            self.from_host(dst, fout)
+
+                            return fout
+
+            return output
 
     this_backend.set_available(True)
 except BaseException as e:
