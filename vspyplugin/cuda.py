@@ -149,12 +149,20 @@ try:
             return string
 
         def get_kernel_args(self, width: int, height: int, **kwargs: Any) -> dict[str, Any]:
+            from vsutil import get_peak_value, get_lowest_value, get_neutral_value
+
+            assert self.ref_clip.format
+
             block_x, block_y = self.get_kernel_size(width, height)
 
             kernel_args = dict(
                 use_shared_memory=self.use_shared_memory,
                 block_x=block_x, block_y=block_y,
-                data_type=get_c_dtype_long(self.ref_clip)
+                data_type=get_c_dtype_long(self.ref_clip),
+                is_float=self.ref_clip.format.sample_type is vs.FLOAT,
+                lowest_value=float(get_lowest_value(self.ref_clip)),
+                neutral_value=float(get_neutral_value(self.ref_clip)),
+                peak_value=float(get_peak_value(self.ref_clip)),
             )
 
             try:
@@ -174,8 +182,6 @@ try:
             if kernel_kwargs is None:
                 kernel_kwargs = {}
 
-            cuda_kernel_code: str | None = None
-
             if not hasattr(self, 'cuda_kernel'):
                 raise RuntimeError(f'{self.__class__.__name__}: You\'re missing cuda_kernel!')
 
@@ -188,6 +194,7 @@ try:
 
             cuda_path = cuda_path.absolute().resolve()
 
+            cuda_kernel_code: str | None = None
             if cuda_path.exists():
                 cuda_kernel_code = cuda_path.read_text()
             elif isinstance(self.cuda_kernel[0], str):
