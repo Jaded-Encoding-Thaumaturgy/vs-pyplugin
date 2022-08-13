@@ -7,7 +7,7 @@ import vapoursynth as vs
 import numpy as np
 
 from .base import FD_T, PyBackend, PyPlugin, PyPluginUnavailableBackend
-from .helpers import frame_eval_async, get_frame, get_frames
+from .coroutines import frame_eval_async, get_frame, get_frames
 
 __all__ = [
     'PyPluginNumpy'

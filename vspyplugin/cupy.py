@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 import vapoursynth as vs
 
 from .base import FD_T, PyBackend, PyPlugin, PyPluginUnavailableBackend
-from .helpers import frame_eval_async, gathers, get_frame, get_frames
+from .coroutines import frame_eval_async, gathers, get_frame, get_frames
 
 __all__ = [
     'PyPluginCupy'
