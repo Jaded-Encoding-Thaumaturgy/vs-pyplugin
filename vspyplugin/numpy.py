@@ -109,7 +109,7 @@ try:
                                 for idx, frame in enumerate(frames)
                             ]
 
-                            self.process(inputs_data, output_array, p, n)
+                            self.process(fout, inputs_data, output_array, p, n)
 
                         return fout
                 else:
@@ -120,7 +120,7 @@ try:
                             fout = frame.copy()
 
                             for p in range(fout.format.num_planes):
-                                self.process(self.to_host(frame, p), self.to_host(fout, p), p, n)
+                                self.process(fout, self.to_host(frame, p), self.to_host(fout, p), p, n)
 
                             return fout
                     else:
@@ -132,7 +132,7 @@ try:
                             pre_stacked_clip = _stack_frame(frame, 0)
 
                             for p in range(fout.format.num_planes):
-                                self.process(pre_stacked_clip, self.to_host(fout, p), p, n)
+                                self.process(fout, pre_stacked_clip, self.to_host(fout, p), p, n)
 
                             return fout
             else:
@@ -148,7 +148,7 @@ try:
 
                         src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(frames)]
 
-                        self.process(src_arrays, dst_stacked_arr, None, n)
+                        self.process(fout, src_arrays, dst_stacked_arr, None, n)
 
                         self.from_host(dst_stacked_arr, fout)
 
@@ -160,7 +160,7 @@ try:
                             frame = await get_frame(self.ref_clip, n)
                             fout = frame.copy()
 
-                            self.process(self.to_host(frame, 0), self.to_host(fout, 0), 0, n)
+                            self.process(fout, self.to_host(frame, 0), self.to_host(fout, 0), 0, n)
 
                             return fout
                     else:
@@ -169,7 +169,7 @@ try:
                             frame = await get_frame(self.ref_clip, n)
                             fout = frame.copy()
 
-                            self.process(_stack_whole_frame(frame), dst_stacked_arr, None, n)
+                            self.process(fout, _stack_whole_frame(frame), dst_stacked_arr, None, n)
 
                             self.from_host(dst_stacked_arr, fout)
 

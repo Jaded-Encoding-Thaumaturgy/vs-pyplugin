@@ -205,7 +205,7 @@ try:
                                 for idx, frame in enumerate(frames)
                             ]
 
-                            self.process(inputs_data, dst_stacked_planes[p], p, n)
+                            self.process(fout, inputs_data, dst_stacked_planes[p], p, n)
 
                         return self.from_device(fout)
                 else:
@@ -216,7 +216,7 @@ try:
                             fout = frame.copy()
 
                             for p in range(fout.format.num_planes):
-                                self.process(self.to_device(frame, 0, p), dst_stacked_planes[p], p, n)
+                                self.process(fout, self.to_device(frame, 0, p), dst_stacked_planes[p], p, n)
 
                             return self.from_device(fout)
                     else:
@@ -228,7 +228,7 @@ try:
                             pre_stacked_clip = _stack_frame(frame, 0)
 
                             for p in range(fout.format.num_planes):
-                                self.process(pre_stacked_clip, dst_stacked_planes[p], p, n)
+                                self.process(fout, pre_stacked_clip, dst_stacked_planes[p], p, n)
 
                             return self.from_device(fout)
             else:
@@ -241,7 +241,7 @@ try:
                         frame = await get_frame(self.ref_clip, n)
                         fout = frame.copy()
 
-                        self.process(await wait(
+                        self.process(fout, await wait(
                             inner_stack(clip, n, idx) for idx, clip in enumerate(self.clips, 1)
                         ), dst_stacked_arr, None, n)
 
@@ -252,7 +252,7 @@ try:
                         frame = await get_frame(self.ref_clip, n)
                         fout = frame.copy()
 
-                        self.process(_stack_whole_frame(frame, 0), dst_stacked_arr, None, n)
+                        self.process(fout, _stack_whole_frame(frame, 0), dst_stacked_arr, None, n)
 
                         return self.from_device(fout)
 

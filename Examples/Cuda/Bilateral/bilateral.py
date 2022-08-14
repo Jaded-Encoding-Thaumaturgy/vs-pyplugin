@@ -20,7 +20,7 @@ class BilateralFilter(PyPluginCuda[None]):
     kernel_size = 16
     use_shared_memory = True
 
-    def process(self, src: NDArray[Any], dst: NDArray[Any], plane: int | None, n: int) -> None:
+    def process(self, f: vs.VideoFrame, src: NDArray[Any], dst: NDArray[Any], plane: int | None, n: int) -> None:
         self.kernel.bilateral[plane](src, dst)
 
     @lru_cache
@@ -57,8 +57,8 @@ def bilateral(
 # From my benchmarks, it's 2x faster with real numbers, just 6% in the vacuum (BlankClip, with zeroes)
 
 src = source(r"E:\Desktop\Encoding Sources\[BDMV] Takagi-San 3\TAKAGISAN3_1\BDMV\STREAM\00003.m2ts", 8, matrix_prop=1)
-# src = src.std.ShufflePlanes(0, vs.GRAY)
-src = src.resize.Bicubic(format=vs.YUV444P8)
+src = src.std.ShufflePlanes(0, vs.GRAY)
+# src = src.resize.Bicubic(format=vs.YUV444P8)
 
 # src = src.std.BlankClip(keep=True, length=100000)
 

@@ -19,7 +19,7 @@ class GaussianFilterData:
 
 
 class GaussianFilter(PyPluginNumpy[GaussianFilterData]):
-    def process(self, src: NDArray[Any], dst: NDArray[Any], plane: int | None, n: int) -> None:
+    def process(self, f: vs.VideoFrame, src: NDArray[Any], dst: NDArray[Any], plane: int | None, n: int) -> None:
         gaussian_filter(src, self.fd.sigma_v, output=dst)
 
 
@@ -35,7 +35,7 @@ def gaussian(clip: vs.VideoNode, sigma: float | tuple[float, float] = 0.5) -> vs
 # This is unoptimized as hell, but it's just for testing
 
 src = source(r"E:\Desktop\Encoding Sources\[BDMV] Takagi-San 3\TAKAGISAN3_1\BDMV\STREAM\00003.m2ts", 8, matrix_prop=1)
-# src = src.std.ShufflePlanes(0, vs.GRAY)
+src = src.std.ShufflePlanes(0, vs.GRAY)
 # src = src.resize.Bicubic(format=vs.YUV444P8)
 
 set_output(src)
