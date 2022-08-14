@@ -84,13 +84,8 @@ try:
                         self.to_host(frame, 2)
                     ], axis=0)
 
-            is_single_plane = [
-                bool(clip.format and clip.format.num_planes == 1)
-                for clip in (self.ref_clip, *self.clips)
-            ]
-
             def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
-                if is_single_plane[idx]:
+                if self.is_single_plane[idx]:
                     return self.to_host(frame, 0)
 
                 return _stack_whole_frame(frame)

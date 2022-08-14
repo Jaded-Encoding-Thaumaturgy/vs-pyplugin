@@ -73,7 +73,8 @@ class PyPlugin(Generic[FD_T]):
     if TYPE_CHECKING:
         __slots__ = (
             'backend', 'filter_data', 'clips', 'ref_clip', 'fd',
-            '_input_per_plane', 'out_format', 'output_per_plane'
+            '_input_per_plane', 'out_format', 'output_per_plane',
+            'is_single_plane'
         )
     else:
         __slots__ = (
@@ -145,6 +146,11 @@ class PyPlugin(Generic[FD_T]):
 
         if ref_clip.format.num_planes == 1:
             self.output_per_plane = True
+
+        self.is_single_plane = [
+            bool(clip.format and clip.format.num_planes == 1)
+            for clip in (self.ref_clip, *self.clips)
+        ]
 
         if n_clips < self.min_clips or (self.max_clips > 0 and n_clips > self.max_clips):
             max_clips = 'inf' if self.max_clips == -1 else self.max_clips

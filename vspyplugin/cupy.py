@@ -157,13 +157,8 @@ try:
                         self.to_device(frame, idx, plane) for plane in {0, 1, 2}
                     ], axis=0)
 
-            is_single_plane = [
-                bool(clip.format and clip.format.num_planes == 1)
-                for clip in (self.ref_clip, *self.clips)
-            ]
-
             def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
-                if is_single_plane[idx]:
+                if self.is_single_plane[idx]:
                     return self.to_device(frame, idx, 0)
 
                 return _stack_whole_frame(frame, idx)
@@ -174,7 +169,7 @@ try:
                 shape = (self.ref_clip.height, self.ref_clip.width)
 
                 shape_channels: tuple[int, ...]
-                if is_single_plane[0]:
+                if self.is_single_plane[0]:
                     shape_channels = shape + (1, )
                 elif self.channels_last:
                     shape_channels = shape + (3, )
