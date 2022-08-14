@@ -35,66 +35,63 @@ try:
 
         cuda_num_streams: int = 0
 
+        def _synchronize(self, events: list[cuda.Event]) -> None:
+            for event in events:
+                self.cuda_default_stream.wait_event(event)
+
+            self.cuda_device.synchronize()
+
+        def _memcpy_async(
+            self, dst_ptr: int, src_ptr: int, amount: int, kind: int, sync: bool = True
+        ) -> list[cuda.Event]:
+            offset = 0
+
+            stop_events = []
+            for stream in self.cuda_streams:
+                with stream:
+                    runtime.memcpyAsync(dst_ptr + offset, src_ptr + offset, amount, kind, stream.ptr)
+
+                    stop_events.append(cuda.Event())
+
+                    offset += amount
+
+            if sync:
+                self._synchronize(stop_events)
+
+            return stop_events
+
         def to_device(self, f: vs.VideoFrame, idx: int, plane: int) -> NDArray[Any]:
-            src_ptr = cast(int, f.get_read_ptr(plane).value)
-            dst_ptr = int(self.src_arrays[plane][idx].data)
-            amount = self.src_data_lengths[plane][idx]
-
-            if self.cuda_num_streams:
-                offset = 0
-
-                stop_events = []
-                for stream in self.cuda_streams:
-                    with stream:
-                        runtime.memcpyAsync(
-                            dst_ptr + offset, src_ptr + offset, amount,
-                            runtime.memcpyHostToDevice, stream.ptr
-                        )
-
-                        stop_events.append(cuda.Event())
-
-                        offset += amount
-
-                for stop_event in stop_events:
-                    self.cuda_default_stream.wait_event(stop_event)
-
-                self.cuda_device.synchronize()
-            else:
-                runtime.memcpy(dst_ptr, src_ptr, amount, runtime.memcpyHostToDevice)
+            self._memcpy_func(
+                int(self.src_arrays[plane][idx].data),
+                cast(int, f.get_read_ptr(plane).value),
+                self.src_data_lengths[plane][idx],
+                runtime.memcpyHostToDevice
+            )
 
             return self.src_arrays[plane][idx]
 
         def from_device(self, dst: vs.VideoFrame) -> None:
             if self.cuda_num_streams:
+                events = []
                 for plane in range(dst.format.num_planes):
-                    amount = self.out_data_lengths[plane]
-                    src_ptr = self._dst_pointers[plane]
-                    dst_ptr = cast(int, dst.get_write_ptr(plane).value)
-
-                    offset = 0
-
-                    stop_events = []
-                    for stream in self.cuda_streams:
-                        with stream:
-                            runtime.memcpyAsync(
-                                dst_ptr + offset, src_ptr + offset, amount,
-                                runtime.memcpyDeviceToHost, stream.ptr
-                            )
-
-                            stop_events.append(cuda.Event())
-
-                        offset += amount
-
-                    for stop_event in stop_events:
-                        self.cuda_default_stream.wait_event(stop_event)
-
-                    self.cuda_device.synchronize()
+                    events.extend(
+                        self._memcpy_async(
+                            cast(int, dst.get_write_ptr(plane).value),
+                            self._dst_pointers[plane],
+                            self.out_data_lengths[plane],
+                            runtime.memcpyDeviceToHost,
+                            False
+                        )
+                    )
+                self._synchronize(events)
             else:
                 for plane in range(dst.format.num_planes):
-                    amount = self.out_data_lengths[plane]
-                    src_ptr = self._dst_pointers[plane]
-                    dst_ptr = cast(int, dst.get_write_ptr(plane).value)
-                    runtime.memcpy(dst_ptr, src_ptr, amount, runtime.memcpyDeviceToHost)
+                    runtime.memcpy(
+                        cast(int, dst.get_write_ptr(plane).value),
+                        self._dst_pointers[plane],
+                        self.out_data_lengths[plane],
+                        runtime.memcpyDeviceToHost
+                    )
 
         def _alloc_arrays(self, clip: vs.VideoNode) -> list[NDArray[Any]]:
             assert clip.format
@@ -139,6 +136,8 @@ try:
         @PyPlugin.ensure_output
         def invoke(self) -> vs.VideoNode:
             assert self.ref_clip.format
+
+            self._memcpy_func = self._memcpy_async if self.cuda_num_streams else runtime.memcpy
 
             if self.ref_clip.format.num_planes == 1:
                 def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
