@@ -52,6 +52,8 @@ try:
             return arr.shape[0] * arr.shape[1] * arr.dtype.itemsize
 
         def __init__(self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None, **kwargs: Any) -> None:
+            super().__init__(ref_clip, clips, **kwargs)
+
             no_slice = slice(None, None, None)
             self._slice_idxs = cast(list[slice], [
                 (
@@ -60,8 +62,6 @@ try:
                     [no_slice, plane][self.channels_last]
                 ) for plane in range(3)
             ])
-
-            super().__init__(ref_clip, clips, **kwargs)
 
         @PyPlugin.ensure_output
         def invoke(self) -> vs.VideoNode:
@@ -72,16 +72,12 @@ try:
 
                 def _stack_whole_frame(frame: vs.VideoFrame) -> NDArray[Any]:
                     return concatenate([
-                        self.to_host(frame, 0)[stack_slice],
-                        self.to_host(frame, 1)[stack_slice],
-                        self.to_host(frame, 2)[stack_slice]
+                        self.to_host(frame, plane)[stack_slice] for plane in {0, 1, 2}
                     ], axis=2)
             else:
                 def _stack_whole_frame(frame: vs.VideoFrame) -> NDArray[Any]:
                     return concatenate([
-                        self.to_host(frame, 0),
-                        self.to_host(frame, 1),
-                        self.to_host(frame, 2)
+                        self.to_host(frame, plane) for plane in {0, 1, 2}
                     ], axis=0)
 
             def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
@@ -120,20 +116,20 @@ try:
                     if self._input_per_plane[0]:
                         @frame_eval_async(self.ref_clip)
                         async def output(n: int) -> vs.VideoFrame:
-                            ref_frame = await get_frame(self.ref_clip, n)
-                            fout = ref_frame.copy()
+                            frame = await get_frame(self.ref_clip, n)
+                            fout = frame.copy()
 
                             for p in range(fout.format.num_planes):
-                                self.process(self.to_host(ref_frame, p), self.to_host(fout, p), p, n)
+                                self.process(self.to_host(frame, p), self.to_host(fout, p), p, n)
 
                             return fout
                     else:
                         @frame_eval_async(self.ref_clip)
                         async def output(n: int) -> vs.VideoFrame:
-                            ref_frame = await get_frame(self.ref_clip, n)
-                            fout = ref_frame.copy()
+                            frame = await get_frame(self.ref_clip, n)
+                            fout = frame.copy()
 
-                            pre_stacked_clip = _stack_frame(ref_frame, 0)
+                            pre_stacked_clip = _stack_frame(frame, 0)
 
                             for p in range(fout.format.num_planes):
                                 self.process(pre_stacked_clip, self.to_host(fout, p), p, n)

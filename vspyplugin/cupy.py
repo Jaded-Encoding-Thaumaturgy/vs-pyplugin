@@ -212,20 +212,20 @@ try:
                     if self._input_per_plane[0]:
                         @frame_eval_async(self.ref_clip)
                         async def output(n: int) -> vs.VideoFrame:
-                            ref_frame = await get_frame(self.ref_clip, n)
-                            fout = ref_frame.copy()
+                            frame = await get_frame(self.ref_clip, n)
+                            fout = frame.copy()
 
                             for p in range(fout.format.num_planes):
-                                self.process(self.to_device(ref_frame, 0, p), dst_stacked_planes[p], p, n)
+                                self.process(self.to_device(frame, 0, p), dst_stacked_planes[p], p, n)
 
                             return self.from_device(fout)
                     else:
                         @frame_eval_async(self.ref_clip)
                         async def output(n: int) -> vs.VideoFrame:
-                            ref_frame = await get_frame(self.ref_clip, n)
-                            fout = ref_frame.copy()
+                            frame = await get_frame(self.ref_clip, n)
+                            fout = frame.copy()
 
-                            pre_stacked_clip = _stack_frame(ref_frame, 0)
+                            pre_stacked_clip = _stack_frame(frame, 0)
 
                             for p in range(fout.format.num_planes):
                                 self.process(pre_stacked_clip, dst_stacked_planes[p], p, n)
