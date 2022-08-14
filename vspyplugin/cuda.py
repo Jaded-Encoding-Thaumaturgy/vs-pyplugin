@@ -82,13 +82,7 @@ try:
 
             self.planes_functions += self.planes_functions[-1:] * (3 - len(self.planes_functions))
 
-        if TYPE_CHECKING:
-            def __call__(
-                self, src: NDArray[Any], dst: NDArray[Any], *args: Any,
-                kernel_size: tuple[int, int] = ..., block_size: tuple[int, int] = ..., shared_mem: int = ...
-            ) -> Any:
-                ...
-        else:
+        if not TYPE_CHECKING:
             def __call__(self, *args: Any, **kwargs: Any) -> Any:
                 return self.function(*args, **kwargs)
 
