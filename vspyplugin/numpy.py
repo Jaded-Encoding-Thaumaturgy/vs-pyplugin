@@ -4,8 +4,6 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 
 import vapoursynth as vs
 
-import numpy as np
-
 from .backends import PyBackend
 from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
 from .coroutines import frame_eval_async, get_frame, get_frames
@@ -17,6 +15,7 @@ __all__ = [
 this_backend = PyBackend.NUMPY
 
 try:
+    import numpy as np
     from numpy import dtype
     from numpy.core._multiarray_umath import copyto as npcopyto
     from numpy.typing import NDArray
