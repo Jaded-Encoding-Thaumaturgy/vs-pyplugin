@@ -70,7 +70,7 @@ try:
 
             return self.src_arrays[plane][idx]
 
-        def from_device(self, dst: vs.VideoFrame) -> None:
+        def from_device(self, dst: vs.VideoFrame) -> vs.VideoFrame:
             if self.cuda_num_streams:
                 events = []
                 for plane in range(dst.format.num_planes):
@@ -92,6 +92,8 @@ try:
                         self.out_data_lengths[plane],
                         runtime.memcpyDeviceToHost
                     )
+
+            return dst
 
         def _alloc_arrays(self, clip: vs.VideoNode) -> list[NDArray[Any]]:
             assert clip.format
@@ -147,16 +149,12 @@ try:
 
                 def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
                     return concatenate([
-                        self.to_device(frame, idx, 0)[stack_slice],
-                        self.to_device(frame, idx, 1)[stack_slice],
-                        self.to_device(frame, idx, 2)[stack_slice]
+                        self.to_device(frame, idx, plane)[stack_slice] for plane in {0, 1, 2}
                     ], axis=2)
             else:
                 def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
                     return concatenate([
-                        self.to_device(frame, idx, 0),
-                        self.to_device(frame, idx, 1),
-                        self.to_device(frame, idx, 2)
+                        self.to_device(frame, idx, plane) for plane in {0, 1, 2}
                     ], axis=0)
 
             is_single_plane = [
@@ -214,9 +212,7 @@ try:
 
                             self.process(inputs_data, dst_stacked_planes[p], p, n)
 
-                        self.from_device(fout)
-
-                        return fout
+                        return self.from_device(fout)
                 else:
                     if self._input_per_plane[0]:
                         @frame_eval_async(self.ref_clip)
@@ -227,9 +223,7 @@ try:
                             for p in range(fout.format.num_planes):
                                 self.process(self.to_device(ref_frame, 0, p), dst_stacked_planes[p], p, n)
 
-                            self.from_device(fout)
-
-                            return fout
+                            return self.from_device(fout)
                     else:
                         @frame_eval_async(self.ref_clip)
                         async def output(n: int) -> vs.VideoFrame:
@@ -241,9 +235,7 @@ try:
                             for p in range(fout.format.num_planes):
                                 self.process(pre_stacked_clip, dst_stacked_planes[p], p, n)
 
-                            self.from_device(fout)
-
-                            return fout
+                            return self.from_device(fout)
             else:
                 if self.clips:
                     async def inner_stack(clip: vs.VideoNode, n: int, idx: int) -> NDArray[Any]:
@@ -254,14 +246,11 @@ try:
                         frame = await get_frame(self.ref_clip, n)
                         fout = frame.copy()
 
-                        src_arrays = await wait(
+                        self.process(await wait(
                             inner_stack(clip, n, idx) for idx, clip in enumerate(self.clips, 1)
-                        )
+                        ), dst_stacked_arr, None, n)
 
-                        self.process(src_arrays, dst_stacked_arr, None, n)
-                        self.from_device(fout)
-
-                        return fout
+                        return self.from_device(fout)
                 else:
                     @frame_eval_async(self.ref_clip)
                     async def output(n: int) -> vs.VideoFrame:
@@ -269,9 +258,8 @@ try:
                         fout = frame.copy()
 
                         self.process(_stack_whole_frame(frame, 0), dst_stacked_arr, None, n)
-                        self.from_device(fout)
 
-                        return fout
+                        return self.from_device(fout)
 
             return output
 
