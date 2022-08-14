@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Iterable, Protocol, TypeVar
 
 _KT = TypeVar('_KT')

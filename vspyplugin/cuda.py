@@ -144,7 +144,7 @@ try:
             return string
 
         def get_kernel_args(self, plane: int, width: int, height: int, **kwargs: Any) -> dict[str, Any]:
-            from vsutil import get_peak_value, get_lowest_value, get_neutral_value
+            from vsutil import get_lowest_value, get_neutral_value, get_peak_value
 
             assert self.ref_clip.format
 

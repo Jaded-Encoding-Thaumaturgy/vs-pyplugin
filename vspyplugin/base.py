@@ -1,6 +1,6 @@
 from __future__ import annotations
-from dataclasses import dataclass
 
+from dataclasses import dataclass
 from functools import wraps
 from itertools import count
 from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Type, TypeVar, cast, overload

@@ -8,7 +8,7 @@ from typing import Callable, Literal, overload
 
 import vapoursynth as vs
 
-from .coros import _coro2node
+from .coros import coro2node
 from .types import AnyCoroutine
 
 __all__ = [
@@ -28,7 +28,7 @@ FEA_FUNC = Callable[[int], AnyCoroutine[None, vs.VideoFrame | vs.VideoNode]]
 def frame_eval_async(base_clip: vs.VideoNode) -> Callable[[FEA_FUNC], vs.VideoNode]:
     def _decorator(func: FEA_FUNC) -> vs.VideoNode:
         def _inner(n: int) -> vs.VideoNode:
-            return _coro2node(base_clip, n, func(n))
+            return coro2node(base_clip, n, func(n))
 
         return base_clip.std.FrameEval(_inner)
 

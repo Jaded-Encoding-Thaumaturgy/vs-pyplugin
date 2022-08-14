@@ -6,7 +6,7 @@ import vapoursynth as vs
 
 from .backends import PyBackend
 from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
-from .coroutines import frame_eval_async, wait, get_frame, get_frames
+from .coroutines import frame_eval_async, get_frame, get_frames, wait
 from .utils import get_resolutions
 
 __all__ = [
