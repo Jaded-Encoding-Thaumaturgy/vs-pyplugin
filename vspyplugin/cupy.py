@@ -6,7 +6,7 @@ import vapoursynth as vs
 
 from .backends import PyBackend
 from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
-from .coroutines import frame_eval_async, gathers, get_frame, get_frames
+from .coroutines import frame_eval_async, wait, get_frame, get_frames
 from .utils import get_resolutions
 
 __all__ = [
@@ -240,7 +240,7 @@ try:
                         frame = await get_frame(self.ref_clip, n)
                         fout = frame.copy()
 
-                        src_arrays = await gathers(
+                        src_arrays = await wait(
                             inner_stack(clip, n, idx) for idx, clip in enumerate(self.clips, 1)
                         )
 
