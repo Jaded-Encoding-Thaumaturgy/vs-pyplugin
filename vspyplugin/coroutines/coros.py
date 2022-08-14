@@ -15,7 +15,8 @@ core = vs.core
 
 __all__ = [
     'Atom',
-    'SingleFrameRequest', 'GatherRequests'
+    'SingleFrameRequest', 'GatherRequests',
+    'coro2node'
 ]
 
 
@@ -107,10 +108,10 @@ def _coro2node_wrapped(
     base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[S, T]
 ) -> tuple[vs.VideoNode, Atom[T]]:
     atom = Atom[T]()
-    return _coro2node(base_clip, frameno, coro, atom), atom
+    return coro2node(base_clip, frameno, coro, atom), atom
 
 
-def _coro2node(
+def coro2node(
     base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[S, T], wrap: Atom[T] | None = None
 ) -> vs.VideoNode:
     assert base_clip.format
