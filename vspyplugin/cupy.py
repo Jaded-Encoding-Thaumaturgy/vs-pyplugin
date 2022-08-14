@@ -7,6 +7,7 @@ import vapoursynth as vs
 from .backends import PyBackend
 from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
 from .coroutines import frame_eval_async, gathers, get_frame, get_frames
+from .utils import get_resolutions
 
 __all__ = [
     'PyPluginCupy'
@@ -91,12 +92,8 @@ try:
             assert clip.format
 
             return [
-                cp.zeros(
-                    (plane.height, plane.width), self.get_dtype(clip), 'C'
-                ) for plane in (
-                    [clip] if clip.format.num_planes == 1 else
-                    cast(list[vs.VideoNode], clip.std.SplitPlanes())
-                )
+                cp.zeros((height, width), self.get_dtype(clip), 'C')
+                for _, width, height in get_resolutions(clip, True)
             ]
 
         def _get_data_len(self, arr: NDArray[Any]) -> int:

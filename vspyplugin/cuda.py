@@ -10,7 +10,7 @@ import vapoursynth as vs
 
 from .backends import PyBackend
 from .base import FD_T, PyPluginOptions, PyPluginUnavailableBackend
-from .utils import get_c_dtype_long
+from .utils import get_c_dtype_long, get_resolutions
 
 __all__ = [
     'PyPluginCuda',
@@ -276,12 +276,7 @@ try:
 
                 return _cache_kernel_funcs[kernel_key]
 
-            chroma_res = (
-                self.ref_clip.width // max(1, self.ref_clip.format.subsampling_w),
-                self.ref_clip.height // max(1, self.ref_clip.format.subsampling_h)
-            )
-
-            resolutions = [(0, self.ref_clip.width, self.ref_clip.height), (1, *chroma_res), (2, *chroma_res)]
+            resolutions = get_resolutions(self.ref_clip)
 
             kernel_functions = {
                 name: [

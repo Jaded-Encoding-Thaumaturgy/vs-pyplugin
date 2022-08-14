@@ -1,6 +1,23 @@
 import vapoursynth as vs
 
 
+def get_resolutions(clip: vs.VideoNode | vs.VideoFrame, strip: bool = False) -> tuple[tuple[int, int, int], ...]:
+    assert clip.format
+
+    chroma_res = (
+        clip.width >> clip.format.subsampling_w, clip.height >> clip.format.subsampling_h
+    )
+
+    resolutions = (
+        (0, clip.width, clip.height), (1, *chroma_res), (2, *chroma_res)
+    )
+
+    if clip.format.num_planes == 1:
+        return resolutions[:1]
+
+    return resolutions
+
+
 def get_c_dtype_short(clip: vs.VideoNode) -> str:
     assert clip.format
 
