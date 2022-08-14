@@ -23,7 +23,7 @@ class SigmaFilter(PyPluginCython[SigmaFilterData]):
     input_per_plane = True
     output_per_plane = True
 
-    def process(self, f: vs.VideoFrame, src: c_void_p, dst: c_void_p, plane: int | None, n: int) -> None:
+    def process(self, f: vs.VideoFrame, src: memoryview, dst: memoryview, plane: int | None, n: int) -> None:
         self.kernel.sigma_filter(src, dst, self.fd.radius, self.fd.thr)
 
 
