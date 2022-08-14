@@ -36,57 +36,65 @@ try:
         cuda_num_streams: int = 0
 
         def to_device(self, f: vs.VideoFrame, idx: int, plane: int) -> NDArray[Any]:
+            src_ptr = cast(int, f.get_read_ptr(plane).value)
+            dst_ptr = int(self.src_arrays[plane][idx].data)
+            amount = self.src_data_lengths[plane][idx]
+
             if self.cuda_num_streams:
+                offset = 0
+
                 stop_events = []
                 for stream in self.cuda_streams:
                     with stream:
                         runtime.memcpyAsync(
-                            int(self.src_arrays[plane][idx].data), f.get_read_ptr(plane).value,
-                            self.src_data_lengths[plane][idx], runtime.memcpyHostToDevice,
-                            stream.ptr
+                            dst_ptr + offset, src_ptr + offset, amount,
+                            runtime.memcpyHostToDevice, stream.ptr
                         )
 
-                    stop_events.append(cuda.Event())
+                        stop_events.append(cuda.Event())
+
+                        offset += amount
 
                 for stop_event in stop_events:
                     self.cuda_default_stream.wait_event(stop_event)
 
                 self.cuda_device.synchronize()
             else:
-                runtime.memcpy(
-                    int(self.src_arrays[plane][idx].data), f.get_read_ptr(plane).value,
-                    self.src_data_lengths[plane][idx], runtime.memcpyHostToDevice
-                )
+                runtime.memcpy(dst_ptr, src_ptr, amount, runtime.memcpyHostToDevice)
 
             return self.src_arrays[plane][idx]
 
-        def from_device(
-            self, src: NDArray[Any] | list[NDArray[Any]], dst: vs.VideoFrame, to_slice: bool = False
-        ) -> None:
-            for plane in range(dst.format.num_planes):
-                source = cast(NDArray[Any], src[self._slice_idxs[plane]] if to_slice else src[plane])
+        def from_device(self, dst: vs.VideoFrame) -> None:
+            if self.cuda_num_streams:
+                for plane in range(dst.format.num_planes):
+                    amount = self.out_data_lengths[plane]
+                    src_ptr = self._dst_pointers[plane]
+                    dst_ptr = cast(int, dst.get_write_ptr(plane).value)
 
-                if self.cuda_num_streams:
+                    offset = 0
+
                     stop_events = []
                     for stream in self.cuda_streams:
                         with stream:
                             runtime.memcpyAsync(
-                                int(source.data), dst.get_write_ptr(plane).value,
-                                self.out_data_lengths[plane], runtime.memcpyHostToDevice,
-                                stream.ptr
+                                dst_ptr + offset, src_ptr + offset, amount,
+                                runtime.memcpyDeviceToHost, stream.ptr
                             )
 
                             stop_events.append(cuda.Event())
+
+                        offset += amount
 
                     for stop_event in stop_events:
                         self.cuda_default_stream.wait_event(stop_event)
 
                     self.cuda_device.synchronize()
-                else:
-                    runtime.memcpy(
-                        dst.get_write_ptr(plane).value, int(source.data),
-                        self.out_data_lengths[plane], runtime.memcpyDeviceToHost
-                    )
+            else:
+                for plane in range(dst.format.num_planes):
+                    amount = self.out_data_lengths[plane]
+                    src_ptr = self._dst_pointers[plane]
+                    dst_ptr = cast(int, dst.get_write_ptr(plane).value)
+                    runtime.memcpy(dst_ptr, src_ptr, amount, runtime.memcpyDeviceToHost)
 
         def _alloc_arrays(self, clip: vs.VideoNode) -> list[NDArray[Any]]:
             assert clip.format
@@ -165,7 +173,26 @@ try:
 
             if self.output_per_plane:
                 dst_stacked_planes = self._alloc_arrays(self.ref_clip)
+            else:
+                shape = (self.ref_clip.height, self.ref_clip.width)
 
+                shape_channels: tuple[int, ...]
+                if is_single_plane[0]:
+                    shape_channels = shape + (1, )
+                elif self.channels_last:
+                    shape_channels = shape + (3, )
+                else:
+                    shape_channels = (3, ) + shape
+
+                dst_stacked_arr = cp.zeros(shape_channels, self.get_dtype(self.ref_clip))
+                dst_stacked_planes = [
+                    dst_stacked_arr[self._slice_idxs[plane]]
+                    for plane in range(self.ref_clip.format.num_planes)
+                ]
+
+            self._dst_pointers = [int(source.data) for source in dst_stacked_planes]
+
+            if self.output_per_plane:
                 if self.clips:
                     @frame_eval_async(self.ref_clip)
                     async def output(n: int) -> vs.VideoFrame:
@@ -188,7 +215,7 @@ try:
 
                             self.process(inputs_data, dst_stacked_planes[p], p, n)
 
-                        self.from_device(dst_stacked_arr, fout)
+                        self.from_device(fout)
 
                         return fout
                 else:
@@ -201,7 +228,7 @@ try:
                             for p in range(fout.format.num_planes):
                                 self.process(self.to_device(ref_frame, 0, p), dst_stacked_planes[p], p, n)
 
-                            self.from_device(dst_stacked_planes, fout, False)
+                            self.from_device(fout)
 
                             return fout
                     else:
@@ -215,22 +242,10 @@ try:
                             for p in range(fout.format.num_planes):
                                 self.process(pre_stacked_clip, dst_stacked_planes[p], p, n)
 
-                            self.from_device(dst_stacked_planes, fout, False)
+                            self.from_device(fout)
 
                             return fout
             else:
-                shape = (self.ref_clip.height, self.ref_clip.width)
-
-                shape_channels: tuple[int, ...]
-                if is_single_plane[0]:
-                    shape_channels = shape + (1, )
-                elif self.channels_last:
-                    shape_channels = shape + (3, )
-                else:
-                    shape_channels = (3, ) + shape
-
-                dst_stacked_arr = cp.zeros(shape_channels, self.get_dtype(self.ref_clip))
-
                 if self.clips:
                     async def inner_stack(clip: vs.VideoNode, n: int, idx: int) -> NDArray[Any]:
                         return _stack_frame(await get_frame(clip, n), idx)
@@ -245,7 +260,7 @@ try:
                         )
 
                         self.process(src_arrays, dst_stacked_arr, None, n)
-                        self.from_device(dst_stacked_arr, fout)
+                        self.from_device(fout)
 
                         return fout
                 else:
@@ -255,7 +270,7 @@ try:
                         fout = frame.copy()
 
                         self.process(_stack_whole_frame(frame, 0), dst_stacked_arr, None, n)
-                        self.from_device(dst_stacked_arr, fout)
+                        self.from_device(fout)
 
                         return fout
 
