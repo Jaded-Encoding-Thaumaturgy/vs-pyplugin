@@ -159,6 +159,13 @@ class PyPlugin(PyPluginBase[FD_T]):
 
         self.clips = [self.options.norm_clip(clip) for clip in clips] if clips else []
 
+        self_annotations = self.__annotations__.keys()
+
+        for name, value in list(kwargs.items()):
+            if name in self_annotations:
+                setattr(self, name, value)
+                kwargs.pop(name)
+
         try:
             self.fd = self.filter_data(**kwargs)  # type: ignore
         except BaseException:
@@ -305,7 +312,7 @@ class PyPlugin(PyPluginBase[FD_T]):
         miss_args = this_args - annotations
 
         if 'self' in annotations:
-            func = partial(func, self)  # type: ignore
+            func = partial(func, self)
             annotations.remove('self')
 
         if not miss_args:
