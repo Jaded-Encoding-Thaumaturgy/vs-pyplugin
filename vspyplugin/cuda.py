@@ -116,18 +116,6 @@ try:
         kernel: CudaKernelFunctions
 
         @lru_cache
-        def calc_shared_mem(
-            self, plane: int, func_name: str, blk_size_w: int, blk_size_h: int, dtype_size: int
-        ) -> int:
-            return blk_size_w * blk_size_h * dtype_size
-
-        @lru_cache
-        def normalize_kernel_size(
-            self, plane: int, func_name: str, blk_size_w: int, blk_size_h: int, width: int, height: int
-        ) -> tuple[int, int]:
-            return ((width + blk_size_w - 1) // blk_size_w, (height + blk_size_h - 1) // blk_size_h)
-
-        @lru_cache
         def get_kernel_size(self, plane: int, func_name: str, width: int, height: int) -> tuple[int, int]:
             if isinstance(self.kernel_size, tuple):
                 block_x, block_y = self.kernel_size
@@ -136,13 +124,17 @@ try:
 
             return block_x, block_y
 
-        def norm_kernel_args(self, value: Any) -> str:
-            string = str(value)
+        @lru_cache
+        def normalize_kernel_size(
+            self, plane: int, func_name: str, blk_size_w: int, blk_size_h: int, width: int, height: int
+        ) -> tuple[int, int]:
+            return ((width + blk_size_w - 1) // blk_size_w, (height + blk_size_h - 1) // blk_size_h)
 
-            if isinstance(value, bool):
-                return string.lower()
-
-            return string
+        @lru_cache
+        def get_kernel_shared_mem(
+            self, plane: int, func_name: str, blk_size_w: int, blk_size_h: int, dtype_size: int
+        ) -> int:
+            return blk_size_w * blk_size_h * dtype_size
 
         def get_kernel_args(self, plane: int, func_name: str, width: int, height: int, **kwargs: Any) -> dict[str, Any]:
             from vsutil import get_lowest_value, get_neutral_value, get_peak_value
@@ -168,6 +160,14 @@ try:
                     ...
 
             return kwargs | kernel_args | dict(width=width, height=height)
+
+        def normalize_kernel_arg(self, value: Any) -> str:
+            string = str(value)
+
+            if isinstance(value, bool):
+                return string.lower()
+
+            return string
 
         def __init__(
             self,
@@ -280,7 +280,7 @@ try:
                     kernel_args |= p_kwargs
 
                 kernel_args = {
-                    name: self.norm_kernel_args(value)
+                    name: self.normalize_kernel_arg(value)
                     for name, value in kernel_args.items()
                 }
 
@@ -288,7 +288,7 @@ try:
                     plane, name, *block_sizes, self.ref_clip.width, self.ref_clip.height
                 )
 
-                def_shared_mem = self.calc_shared_mem(
+                def_shared_mem = self.get_kernel_shared_mem(
                     plane, name, *block_sizes, self.ref_clip.format.bytes_per_sample
                 ) if self.use_shared_memory else 0
 
