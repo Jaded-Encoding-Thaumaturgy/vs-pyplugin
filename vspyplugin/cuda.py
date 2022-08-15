@@ -237,6 +237,8 @@ try:
             cuda_kernel_code: str | None = None
             if cuda_path.exists():
                 cuda_kernel_code = cuda_path.read_text()
+            elif cuda_path.suffix == '.cu' or len(str(self_cuda_path)) < 24:
+                raise RuntimeError(f'{self.__class__.__name__}: Cuda Kernel file not found!')
             elif isinstance(self_cuda_path, str):
                 cuda_kernel_code = self_cuda_path
 
