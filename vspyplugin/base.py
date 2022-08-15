@@ -96,15 +96,14 @@ class PyPlugin(PyPluginBase[FD_T]):
     backend: PyBackend
     filter_data: Type[FD_T]
 
-    options: PyPluginOptions = PyPluginOptions()
+    options: PyPluginOptions
 
-    input_per_plane: bool | list[bool] = True
-    output_per_plane: bool = True
-    channels_last: bool = True
+    input_per_plane: bool | list[bool]
+    output_per_plane: bool
     channels_last: bool
 
-    min_clips: int = 1
-    max_clips: int = -1
+    min_clips: int
+    max_clips: int
 
     clips: list[vs.VideoNode]
     ref_clip: vs.VideoNode
@@ -125,9 +124,34 @@ class PyPlugin(PyPluginBase[FD_T]):
         return PyPluginInnerClass
 
     def __init__(
-        self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None, **kwargs: Any
+        self,
+        ref_clip: vs.VideoNode,
+        clips: list[vs.VideoNode] | None = None,
+        *,
+        options: PyPluginOptions | None = None,
+        input_per_plane: bool | list[bool] | None = None,
+        output_per_plane: bool | None = None,
+        channels_last: bool | None = None,
+        min_clips: int | None = None,
+        max_clips: int | None = None,
+        **kwargs: Any
     ) -> None:
         assert ref_clip.format
+
+        arguments = [
+            (options, 'options', PyPluginOptions()),
+            (input_per_plane, 'input_per_plane', True),
+            (output_per_plane, 'output_per_plane', True),
+            (channels_last, 'channels_last', True),
+            (min_clips, 'min_clips', 1),
+            (max_clips, 'max_clips', -1)
+        ]
+
+        for value, name, default in arguments:
+            if value is not None:
+                setattr(self, name, value)
+            elif not hasattr(self, name):
+                setattr(self, name, default)
 
         self.out_format = ref_clip.format
 
@@ -144,15 +168,15 @@ class PyPlugin(PyPluginBase[FD_T]):
 
         class_name = self.__class__.__name__
 
-        input_per_plane = self.input_per_plane
+        inputs_per_plane = self.input_per_plane
 
-        if not isinstance(input_per_plane, list):
-            input_per_plane = [input_per_plane]
+        if not isinstance(inputs_per_plane, list):
+            inputs_per_plane = [inputs_per_plane]
 
-        for _ in range((1 + len(self.clips)) - len(input_per_plane)):
-            input_per_plane.append(input_per_plane[-1])
+        for _ in range((1 + len(self.clips)) - len(inputs_per_plane)):
+            inputs_per_plane.append(inputs_per_plane[-1])
 
-        self._input_per_plane = input_per_plane
+        self._input_per_plane = inputs_per_plane
 
         if ref_clip.format.num_planes == 1:
             self.output_per_plane = True
