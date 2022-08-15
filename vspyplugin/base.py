@@ -9,7 +9,7 @@ import vapoursynth as vs
 
 from .backends import PyBackend
 from .coroutines import frame_eval_async, get_frame, get_frames
-from .types import SupportsKeysAndGetItem, copy_signature
+from .types import FilterMode, SupportsKeysAndGetItem, copy_signature
 
 __all__ = [
     'PyPlugin',
@@ -95,6 +95,7 @@ class PyPlugin(PyPluginBase[FD_T]):
 
     backend: PyBackend
     filter_data: Type[FD_T]
+    filter_mode: FilterMode
 
     options: PyPluginOptions
 
@@ -128,6 +129,7 @@ class PyPlugin(PyPluginBase[FD_T]):
         ref_clip: vs.VideoNode,
         clips: list[vs.VideoNode] | None = None,
         *,
+        filter_mode: FilterMode | None = None,
         options: PyPluginOptions | None = None,
         input_per_plane: bool | list[bool] | None = None,
         output_per_plane: bool | None = None,
@@ -139,6 +141,7 @@ class PyPlugin(PyPluginBase[FD_T]):
         assert ref_clip.format
 
         arguments = [
+            (filter_mode, 'filter_mode', FilterMode.Parallel),
             (options, 'options', PyPluginOptions()),
             (input_per_plane, 'input_per_plane', True),
             (output_per_plane, 'output_per_plane', True),
@@ -219,82 +222,85 @@ class PyPlugin(PyPluginBase[FD_T]):
         def _stack_frame(frame: vs.VideoFrame, idx: int) -> memoryview | list[memoryview]:
             return frame[0] if self.is_single_plane[idx] else [frame[p] for p in {0, 1, 2}]
 
-        if self.output_per_plane:
-            if self.clips:
-                @frame_eval_async(self.ref_clip)
-                async def output(n: int) -> vs.VideoFrame:
-                    frames = await get_frames(self.ref_clip, *self.clips, frame_no=n)
-                    fout = frames[0].copy()
+        if self.filter_mode is FilterMode.Async:
+            if self.output_per_plane:
+                if self.clips:
+                    @frame_eval_async(self.ref_clip)
+                    async def output(n: int) -> vs.VideoFrame:
+                        frames = await get_frames(self.ref_clip, *self.clips, frame_no=n)
+                        fout = frames[0].copy()
 
-                    pre_stacked_clips = {
-                        idx: _stack_frame(frame, idx)
-                        for idx, frame in enumerate(frames)
-                        if not self._input_per_plane[idx]
-                    }
-
-                    for p in range(fout.format.num_planes):
-                        inputs_data = [
-                            frame[p] if self._input_per_plane[idx] else pre_stacked_clips[idx]
+                        pre_stacked_clips = {
+                            idx: _stack_frame(frame, idx)
                             for idx, frame in enumerate(frames)
-                        ]
-
-                        self.process(fout, inputs_data, fout[p], p, n)
-
-                    return fout
-            else:
-                if self._input_per_plane[0]:
-                    @frame_eval_async(self.ref_clip)
-                    async def output(n: int) -> vs.VideoFrame:
-                        frame = await get_frame(self.ref_clip, n)
-                        fout = frame.copy()
+                            if not self._input_per_plane[idx]
+                        }
 
                         for p in range(fout.format.num_planes):
-                            self.process(fout, frame[p], fout[p], p, n)
+                            inputs_data = [
+                                frame[p] if self._input_per_plane[idx] else pre_stacked_clips[idx]
+                                for idx, frame in enumerate(frames)
+                            ]
+
+                            self.process(fout, inputs_data, fout[p], p, n)
 
                         return fout
                 else:
+                    if self._input_per_plane[0]:
+                        @frame_eval_async(self.ref_clip)
+                        async def output(n: int) -> vs.VideoFrame:
+                            frame = await get_frame(self.ref_clip, n)
+                            fout = frame.copy()
+
+                            for p in range(fout.format.num_planes):
+                                self.process(fout, frame[p], fout[p], p, n)
+
+                            return fout
+                    else:
+                        @frame_eval_async(self.ref_clip)
+                        async def output(n: int) -> vs.VideoFrame:
+                            ref_frame = await get_frame(self.ref_clip, n)
+                            fout = ref_frame.copy()
+
+                            pre_stacked_clip = _stack_frame(ref_frame, 0)
+
+                            for p in range(fout.format.num_planes):
+                                self.process(fout, pre_stacked_clip, fout[p], p, n)
+
+                            return fout
+            else:
+                if self.clips:
                     @frame_eval_async(self.ref_clip)
                     async def output(n: int) -> vs.VideoFrame:
-                        ref_frame = await get_frame(self.ref_clip, n)
-                        fout = ref_frame.copy()
+                        frames = await get_frames(self.ref_clip, *self.clips, frame_no=n)
+                        fout = frames[0].copy()
 
-                        pre_stacked_clip = _stack_frame(ref_frame, 0)
+                        src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(frames)]
 
-                        for p in range(fout.format.num_planes):
-                            self.process(fout, pre_stacked_clip, fout[p], p, n)
+                        self.process(fout, src_arrays, fout, None, n)
 
                         return fout
+                else:
+                    if self.ref_clip.format.num_planes == 1:
+                        @frame_eval_async(self.ref_clip)
+                        async def output(n: int) -> vs.VideoFrame:
+                            frame = await get_frame(self.ref_clip, n)
+                            fout = frame.copy()
+
+                            self.process(fout, frame[0], fout[0], 0, n)
+
+                            return fout
+                    else:
+                        @frame_eval_async(self.ref_clip)
+                        async def output(n: int) -> vs.VideoFrame:
+                            frame = await get_frame(self.ref_clip, n)
+                            fout = frame.copy()
+
+                            self.process(fout, frame, fout, None, n)
+
+                            return fout
         else:
-            if self.clips:
-                @frame_eval_async(self.ref_clip)
-                async def output(n: int) -> vs.VideoFrame:
-                    frames = await get_frames(self.ref_clip, *self.clips, frame_no=n)
-                    fout = frames[0].copy()
-
-                    src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(frames)]
-
-                    self.process(fout, src_arrays, fout, None, n)
-
-                    return fout
-            else:
-                if self.ref_clip.format.num_planes == 1:
-                    @frame_eval_async(self.ref_clip)
-                    async def output(n: int) -> vs.VideoFrame:
-                        frame = await get_frame(self.ref_clip, n)
-                        fout = frame.copy()
-
-                        self.process(fout, frame[0], fout[0], 0, n)
-
-                        return fout
-                else:
-                    @frame_eval_async(self.ref_clip)
-                    async def output(n: int) -> vs.VideoFrame:
-                        frame = await get_frame(self.ref_clip, n)
-                        fout = frame.copy()
-
-                        self.process(fout, frame, fout, None, n)
-
-                        return fout
+            raise NotImplementedError
 
         return output
 

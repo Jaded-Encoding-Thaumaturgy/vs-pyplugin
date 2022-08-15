@@ -10,6 +10,7 @@ import vapoursynth as vs
 
 from .backends import PyBackend
 from .base import FD_T, PyPluginOptions, PyPluginUnavailableBackend
+from .types import FilterMode
 from .utils import get_c_dtype_long, get_resolutions
 
 __all__ = [
@@ -176,6 +177,7 @@ try:
             *,
             kernel_kwargs: dict[str, Any] | None = None,
             kernel_planes_kwargs: list[dict[str, Any] | None] | None = None,
+            filter_mode: FilterMode | None = None,
             options: PyPluginOptions | None = None,
             input_per_plane: bool | list[bool] | None = None,
             output_per_plane: bool | None = None,
@@ -186,7 +188,7 @@ try:
         ) -> None:
             super().__init__(
                 ref_clip, clips,
-                options=options, channels_last=channels_last,
+                filter_mode=filter_mode, options=options, channels_last=channels_last,
                 input_per_plane=input_per_plane, output_per_plane=output_per_plane,
                 min_clips=min_clips, max_clips=max_clips, **kwargs
             )
