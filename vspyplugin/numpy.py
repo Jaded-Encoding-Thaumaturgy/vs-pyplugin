@@ -1,4 +1,5 @@
 from __future__ import annotations
+from functools import partial
 
 from typing import TYPE_CHECKING, Any, Callable, cast
 
@@ -87,6 +88,11 @@ try:
 
                 return _stack_whole_frame(frame)
 
+            if not self.output_per_plane:
+                dst_stacked_arr = np.zeros(
+                    (self.ref_clip.height, self.ref_clip.width, 3), self.get_dtype(self.ref_clip)
+                )
+
             if self.filter_mode is FilterMode.Async:
                 if self.output_per_plane:
                     if self.clips:
@@ -138,10 +144,6 @@ try:
 
                                 return fout
                 else:
-                    dst_stacked_arr = np.zeros(
-                        (self.ref_clip.height, self.ref_clip.width, 3), self.get_dtype(self.ref_clip)
-                    )
-
                     if self.clips:
                         @frame_eval_async(self.ref_clip)
                         async def output(n: int) -> vs.VideoFrame:
@@ -177,7 +179,96 @@ try:
 
                                 return fout
             else:
-                raise NotImplementedError
+                output_func: Callable[
+                    [vs.VideoFrame, int], vs.VideoFrame
+                ] | Callable[
+                    [list[vs.VideoFrame], int], vs.VideoFrame
+                ]
+
+                if self.output_per_plane:
+                    if self.clips:
+                        def output_func(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
+                            fout = f[0].copy()
+
+                            pre_stacked_clips = {
+                                idx: _stack_frame(frame, idx)
+                                for idx, frame in enumerate(f)
+                                if not self._input_per_plane[idx]
+                            }
+
+                            for p in range(fout.format.num_planes):
+                                output_array = self.to_host(fout, p)
+
+                                inputs_data = [
+                                    self.to_host(frame, p)
+                                    if self._input_per_plane[idx]
+                                    else pre_stacked_clips[idx]
+                                    for idx, frame in enumerate(f)
+                                ]
+
+                                self.process(fout, inputs_data, output_array, p, n)
+
+                            return fout
+                    else:
+                        if self._input_per_plane[0]:
+                            def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                                fout = f.copy()
+
+                                for p in range(fout.format.num_planes):
+                                    self.process(fout, self.to_host(f, p), self.to_host(fout, p), p, n)
+
+                                return fout
+                        else:
+                            def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                                fout = f.copy()
+
+                                pre_stacked_clip = _stack_frame(f, 0)
+
+                                for p in range(fout.format.num_planes):
+                                    self.process(fout, pre_stacked_clip, self.to_host(fout, p), p, n)
+
+                                return fout
+                else:
+                    if self.clips:
+                        def output_func(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
+                            fout = f[0].copy()
+
+                            src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(f)]
+
+                            self.process(fout, src_arrays, dst_stacked_arr, None, n)
+
+                            self.from_host(dst_stacked_arr, fout)
+
+                            return fout
+                    else:
+                        if self.ref_clip.format.num_planes == 1:
+                            def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                                fout = f.copy()
+
+                                self.process(fout, self.to_host(f, 0), self.to_host(fout, 0), 0, n)
+
+                                return fout
+                        else:
+                            def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                                fout = f.copy()
+
+                                self.process(fout, _stack_whole_frame(f), dst_stacked_arr, None, n)
+
+                                self.from_host(dst_stacked_arr, fout)
+
+                                return fout
+
+                modify_frame_partial = partial(
+                    vs.core.std.ModifyFrame,
+                    self.ref_clip,
+                    (self.ref_clip, *self.clips),
+                    output_func
+                )
+
+                if self.filter_mode is FilterMode.Serial:
+                    output = modify_frame_partial()
+                else:
+                    output = self.ref_clip.std.FrameEval(lambda n: modify_frame_partial())
 
             return output
 
