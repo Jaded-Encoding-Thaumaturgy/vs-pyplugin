@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar
+from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar, cast
 
 _KT = TypeVar('_KT')
 _VT_co = TypeVar('_VT_co', covariant=True)
@@ -22,4 +22,4 @@ class copy_signature(Generic[F]):
         ...
 
     def __call__(self, wrapped: Callable[..., Any]) -> F:
-        ...
+        return cast(F, wrapped)
