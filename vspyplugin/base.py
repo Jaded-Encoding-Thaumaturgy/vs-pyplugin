@@ -131,7 +131,10 @@ class PyPlugin(PyPluginBase[FD_T]):
 
         self.clips = [self.options.norm_clip(clip) for clip in clips] if clips else []
 
-        self.fd = self.filter_data(**kwargs) if self.filter_data else None  # type: ignore
+        try:
+            self.fd = self.filter_data(**kwargs)  # type: ignore
+        except BaseException:
+            self.fd = None  # type: ignore
 
         n_clips = 1 + len(self.clips)
 
