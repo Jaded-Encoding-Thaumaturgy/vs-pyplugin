@@ -6,6 +6,7 @@ import vapoursynth as vs
 from stgfunc import set_output, source
 from vspyplugin import PyPluginCython
 from vspyplugin.base import PyPluginOptions
+from vspyplugin.types import FilterMode
 
 core = vs.core
 
@@ -21,6 +22,7 @@ class SigmaFilter(PyPluginCython[SigmaFilterData]):
     cython_kernel = 'sigma_filter'
     input_per_plane = True
     output_per_plane = True
+    filter_mode = FilterMode.Async
 
     def process(self, f: vs.VideoFrame, src: memoryview, dst: memoryview, plane: int | None, n: int) -> None:
         self.kernel.sigma_filter(src, dst, self.fd.radius, self.fd.thr)
