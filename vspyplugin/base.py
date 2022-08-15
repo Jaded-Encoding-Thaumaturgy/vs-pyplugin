@@ -111,8 +111,11 @@ class PyPlugin(PyPluginBase[FD_T]):
 
     fd: FD_T
 
-    def process(self, f: vs.VideoFrame, src: Any, dst: Any, plane: int | None, n: int) -> None:
-        raise NotImplementedError
+    if TYPE_CHECKING:
+        def process(self, f: vs.VideoFrame, src: Any, dst: Any, plane: int | None, n: int) -> None:
+            raise NotImplementedError
+    else:
+        process: FDC_SELF[FD_T]
 
     def __class_getitem__(cls, fdata: Type[FD_T] | None = None) -> Type[PyPlugin[FD_T]]:
         class PyPluginInnerClass(cls):  # type: ignore
