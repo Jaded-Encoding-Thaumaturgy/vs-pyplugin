@@ -6,19 +6,19 @@ from typing import Any
 import vapoursynth as vs
 from numpy.typing import NDArray
 from stgfunc import set_output, source
-from vspyplugin import PyPluginCuda
+from vspyplugin import PyPluginCuda, PyPluginCudaOptions
 
 core = vs.core
 
 
 class BilateralFilter(PyPluginCuda[None]):
-    cuda_kernel = './bilateral.cu', 'bilateral'
+    cuda_kernel = 'bilateral'
 
     input_per_plane = True
     output_per_plane = True
 
     kernel_size = 16
-    use_shared_memory = True
+    options = PyPluginCudaOptions(use_shared_memory=True)
 
     def process(self, f: vs.VideoFrame, src: NDArray[Any], dst: NDArray[Any], plane: int | None, n: int) -> None:
         self.kernel.bilateral[plane](src, dst)

@@ -1,5 +1,4 @@
 from __future__ import annotations
-from ctypes import c_void_p
 
 from dataclasses import dataclass
 
@@ -19,7 +18,7 @@ class SigmaFilterData:
 
 class SigmaFilter(PyPluginCython[SigmaFilterData]):
     options = PyPluginOptions(float_processing=True)
-    cython_kernel = './sigma_filter.pyx', 'sigma_filter'
+    cython_kernel = 'sigma_filter'
     input_per_plane = True
     output_per_plane = True
 
