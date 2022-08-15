@@ -159,9 +159,9 @@ class PyPlugin(PyPluginBase[FD_T]):
         ]
 
         if n_clips < self.min_clips or (self.max_clips > 0 and n_clips > self.max_clips):
-            max_clips = 'inf' if self.max_clips == -1 else self.max_clips
+            max_clips_str = 'inf' if self.max_clips == -1 else self.max_clips
             raise ValueError(
-                f'{class_name}: You must pass {self.min_clips} <= n clips <= {max_clips}!'
+                f'{class_name}: You must pass {self.min_clips} <= n clips <= {max_clips_str}!'
             )
 
         if not self.output_per_plane and (ref_clip.format.subsampling_w or ref_clip.format.subsampling_h):
