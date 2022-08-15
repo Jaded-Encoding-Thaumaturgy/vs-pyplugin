@@ -101,6 +101,7 @@ class PyPlugin(PyPluginBase[FD_T]):
     input_per_plane: bool | list[bool] = True
     output_per_plane: bool = True
     channels_last: bool = True
+    channels_last: bool
 
     min_clips: int = 1
     max_clips: int = -1
