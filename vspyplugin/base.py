@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import wraps
+from functools import partial, wraps
 from itertools import count
 from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Type, TypeVar, cast, overload
 
@@ -265,6 +265,38 @@ class PyPlugin(PyPluginBase[FD_T]):
                         return fout
 
         return output
+
+    def __call__(self, func: FDC_ONLYSD | FDC_NOSELF | FDC_SELF[FD_T]) -> vs.VideoNode:
+        this_args = {'self', 'f', 'src', 'dst', 'plane', 'n'}
+
+        annotations = set(func.__annotations__.keys()) - {'return'}
+
+        if not annotations:
+            raise ValueError(f'{self.__class__.__name__}: You must type hint the function!')
+
+        if annotations - this_args:
+            raise ValueError(f'{self.__class__.__name__}: Unkown arguments specified!')
+
+        miss_args = this_args - annotations
+
+        if 'self' in annotations:
+            func = partial(func, self)
+
+        if not miss_args:
+            self.process = func  # type: ignore
+        else:
+            def _wrapper(f, src, dst, plane, n) -> Any:  # type: ignore
+                curr_locals = locals()
+                return func(**{name: curr_locals[name] for name in annotations})  # type: ignore
+
+            self.process = _wrapper  # type: ignore
+
+        return self.invoke()
+
+
+FDC_ONLYSD = Callable[[Any, Any], None]
+FDC_NOSELF = Callable[[vs.VideoFrame, Any, Any, int | None, int], None]
+FDC_SELF = Callable[[PyPlugin[FD_T], vs.VideoFrame, Any, Any, int | None, int], None]
 
 
 class PyPluginUnavailableBackend(PyPlugin[FD_T]):
