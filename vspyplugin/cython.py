@@ -44,7 +44,7 @@ try:
     class PyPluginCython(PyPlugin[FD_T]):
         backend = this_backend
 
-        cython_kernel: tuple[str | Path, str | Sequence[str]]
+        cython_kernel: str | tuple[str | Path, str | Sequence[str]]
 
         kernel_kwargs: dict[str, Any]
 
@@ -69,12 +69,19 @@ try:
             if not hasattr(self, 'cython_kernel'):
                 raise RuntimeError(f'{class_name}: You\'re missing cython_kernel!')
 
-            cython_path, cython_functions = self.cython_kernel
+            if isinstance(self.cython_kernel, tuple):
+                cython_path, cython_functions = self.cython_kernel
+            else:
+                cython_path, cython_functions = self.cython_kernel, Path(self.cython_kernel).stem
+
             if isinstance(cython_functions, str):
                 cython_functions = [cython_functions]
 
             if not isinstance(cython_path, Path):
                 cython_path = Path(cython_path)
+
+            if not cython_path.suffix:
+                cython_path = cython_path.with_suffix('.pyx')
 
             cython_path = cython_path.absolute().resolve()
             if not cython_path.exists():

@@ -105,7 +105,7 @@ try:
     class PyPluginCuda(PyPluginCupy[FD_T]):
         backend = this_backend
 
-        cuda_kernel: tuple[str | Path, str | Sequence[str]]
+        cuda_kernel: str | tuple[str | Path, str | Sequence[str]]
 
         kernel_size: int | tuple[int, int] = 16
 
@@ -200,20 +200,26 @@ try:
             if not hasattr(self, 'cuda_kernel'):
                 raise RuntimeError(f'{self.__class__.__name__}: You\'re missing cuda_kernel!')
 
-            cuda_path, cuda_functions = self.cuda_kernel
+            if isinstance(self.cuda_kernel, tuple):
+                self_cuda_path, cuda_functions = self.cuda_kernel
+            else:
+                self_cuda_path, cuda_functions = self.cuda_kernel, Path(self.cuda_kernel).stem
+
             if isinstance(cuda_functions, str):
                 cuda_functions = [cuda_functions]
 
-            if not isinstance(cuda_path, Path):
-                cuda_path = Path(cuda_path)
+            cuda_path = Path(self_cuda_path)
+
+            if not cuda_path.suffix:
+                cuda_path = cuda_path.with_suffix('.cu')
 
             cuda_path = cuda_path.absolute().resolve()
 
             cuda_kernel_code: str | None = None
             if cuda_path.exists():
                 cuda_kernel_code = cuda_path.read_text()
-            elif isinstance(self.cuda_kernel[0], str):
-                cuda_kernel_code = self.cuda_kernel[0]
+            elif isinstance(self_cuda_path, str):
+                cuda_kernel_code = self_cuda_path
 
             if cuda_kernel_code:
                 cuda_kernel_code = cuda_kernel_code.strip()
