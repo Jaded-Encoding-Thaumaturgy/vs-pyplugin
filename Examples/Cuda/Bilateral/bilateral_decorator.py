@@ -16,7 +16,7 @@ class BilateralFilter(PyPluginCuda[None]):
     radius: int
 
     @lru_cache
-    def calc_shared_mem(self, plane: int, blk_size_w: int, blk_size_h: int, dtype_size: int) -> int:
+    def calc_shared_mem(self, plane: int, func_name: str, blk_size_w: int, blk_size_h: int, dtype_size: int) -> int:
         return (2 * self.radius + blk_size_w) * (2 * self.radius + blk_size_h) * dtype_size
 
 
