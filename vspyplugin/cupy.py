@@ -7,6 +7,7 @@ import vapoursynth as vs
 from .backends import PyBackend
 from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
 from .coroutines import frame_eval_async, get_frame, get_frames, wait
+from .types import copy_signature
 from .utils import get_resolutions
 
 __all__ = [
@@ -106,10 +107,9 @@ try:
         def _get_data_len(self, arr: NDArray[Any]) -> int:
             return round(super()._get_data_len(arr) / max(1, self.cuda_num_streams))
 
-        def __init__(
-            self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None, **kwargs: Any
-        ) -> None:
-            super().__init__(ref_clip, clips, **kwargs)
+        @copy_signature(PyPlugin.__init__)
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
 
             assert self.ref_clip.format
 
