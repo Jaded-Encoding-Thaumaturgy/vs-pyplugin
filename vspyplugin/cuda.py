@@ -65,7 +65,7 @@ try:
     class CudaKernelFunction:
         def __call__(
             self, src: NDArray[Any], dst: NDArray[Any], *args: Any,
-            kernel_size: tuple[int, int] = ..., block_size: tuple[int, int] = ..., shared_mem: int = ...
+            kernel_size: tuple[int, ...] = ..., block_size: tuple[int, ...] = ..., shared_mem: int = ...
         ) -> Any:
             ...
 
@@ -107,7 +107,7 @@ try:
 
         cuda_kernel: str | tuple[str | Path, str | Sequence[str]]
 
-        kernel_size: int | tuple[int, int] = 16
+        kernel_size: int | tuple[int, ...] = 16
 
         use_shared_memory: bool = False
 
@@ -116,18 +116,16 @@ try:
         kernel: CudaKernelFunctions
 
         @lru_cache
-        def get_kernel_size(self, plane: int, func_name: str, width: int, height: int) -> tuple[int, int]:
+        def get_kernel_size(self, plane: int, func_name: str, width: int, height: int) -> tuple[int, ...]:
             if isinstance(self.kernel_size, tuple):
-                block_x, block_y = self.kernel_size
-            else:
-                block_x = block_y = self.kernel_size
+                return self.kernel_size
 
-            return block_x, block_y
+            return self.kernel_size, self.kernel_size
 
         @lru_cache
         def normalize_kernel_size(
             self, plane: int, func_name: str, blk_size_w: int, blk_size_h: int, width: int, height: int
-        ) -> tuple[int, int]:
+        ) -> tuple[int, ...]:
             return ((width + blk_size_w - 1) // blk_size_w, (height + blk_size_h - 1) // blk_size_h)
 
         @lru_cache
@@ -141,7 +139,7 @@ try:
 
             assert self.ref_clip.format
 
-            block_x, block_y = self.get_kernel_size(plane, width, height)
+            block_x, block_y, *block_xx = self.get_kernel_size(plane, width, height)
 
             kernel_args = dict[str, Any](
                 use_shared_memory=self.use_shared_memory,
@@ -152,6 +150,9 @@ try:
                 neutral_value=float(get_neutral_value(self.ref_clip)),
                 peak_value=float(get_peak_value(self.ref_clip)),
             )
+
+            if block_xx:
+                kernel_args |= dict(block_z=block_xx[0])
 
             if self.fd:
                 try:
@@ -174,7 +175,7 @@ try:
             ref_clip: vs.VideoNode,
             clips: list[vs.VideoNode] | None = None,
             cuda_kernel: str | tuple[str | Path, str | Sequence[str]] | None = None,
-            kernel_size: int | tuple[int, int] | None = None,
+            kernel_size: int | tuple[int, ...] | None = None,
             use_shared_memory: bool | None = None,
             *,
             kernel_kwargs: dict[str, Any] | None = None,
@@ -246,14 +247,14 @@ try:
                 raise RuntimeError(f'{self.__class__.__name__}: Cuda Kernel code not found!')
 
             def _wrap_kernel_function(
-                def_kernel_size: tuple[int, int],
-                def_block_size: tuple[int, int],
+                def_kernel_size: tuple[int, ...],
+                def_block_size: tuple[int, ...],
                 def_shared_mem: int, function: Any
             ) -> CudaKernelFunction:
                 def _inner_function(
                     *args: Any,
-                    kernel_size: tuple[int, int] = def_kernel_size,
-                    block_size: tuple[int, int] = def_block_size,
+                    kernel_size: tuple[int, ...] = def_kernel_size,
+                    block_size: tuple[int, ...] = def_block_size,
                     shared_mem: int = def_shared_mem
                 ) -> Any:
                     return function(kernel_size, block_size, args, shared_mem=shared_mem)
@@ -274,7 +275,7 @@ try:
                 assert self.ref_clip.format and cuda_kernel_code and kernel_kwargs
 
                 kernel_args = self.get_kernel_args(plane, name, width, height, **kernel_kwargs)
-                block_sizes: tuple[int, int] = kernel_args['block_x'], kernel_args['block_y']
+                block_sizes = self.get_kernel_size(plane, width, height)[:2]
 
                 if kernel_planes_kwargs and (p_kwargs := kernel_planes_kwargs[plane]):
                     kernel_args |= p_kwargs
