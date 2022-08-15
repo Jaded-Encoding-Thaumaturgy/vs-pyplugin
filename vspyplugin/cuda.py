@@ -139,7 +139,7 @@ try:
 
             assert self.ref_clip.format
 
-            block_x, block_y, *block_xx = self.get_kernel_size(plane, width, height)
+            block_x, block_y, *block_xx = self.get_kernel_size(plane, func_name, width, height)
 
             kernel_args = dict[str, Any](
                 use_shared_memory=self.use_shared_memory,
@@ -275,7 +275,7 @@ try:
                 assert self.ref_clip.format and cuda_kernel_code and kernel_kwargs
 
                 kernel_args = self.get_kernel_args(plane, name, width, height, **kernel_kwargs)
-                block_sizes = self.get_kernel_size(plane, width, height)[:2]
+                block_sizes = self.get_kernel_size(plane, name, width, height)[:2]
 
                 if kernel_planes_kwargs and (p_kwargs := kernel_planes_kwargs[plane]):
                     kernel_args |= p_kwargs
