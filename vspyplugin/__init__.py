@@ -5,7 +5,6 @@ from .cuda import *  # noqa: F401, F403
 from .cupy import *  # noqa: F401, F403
 from .cython import *  # noqa: F401, F403
 from .exceptions import *  # noqa: F401, F403
-from .numba import *  # noqa: F401, F403
 from .numpy import *  # noqa: F401, F403
 from .types import *  # noqa: F401, F403
 from .utils import *  # noqa: F401, F403
