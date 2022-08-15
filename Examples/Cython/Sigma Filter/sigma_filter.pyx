@@ -20,19 +20,20 @@ cpdef void sigma_filter(
     cdef float center, val, acc
     cdef int count, x, y, i, j
 
-    for y in prange(height):
-        for x in prange(width):
-            center = src[y, x]
+    with nogil:
+        for y in prange(height):
+            for x in prange(width):
+                center = src[y, x]
 
-            acc = 0.0
-            count = 0
+                acc = 0.0
+                count = 0
 
-            for j in prange(clamp(y - radius, 0, height - 1), clamp(y + radius, 0, height - 1) + 1):
-                for i in prange(clamp(x - radius, 0, width - 1), clamp(x + radius, 0, width - 1) + 1):
-                    val = src[j, i]
+                for j in prange(clamp(y - radius, 0, height - 1), clamp(y + radius, 0, height - 1) + 1):
+                    for i in prange(clamp(x - radius, 0, width - 1), clamp(x + radius, 0, width - 1) + 1):
+                        val = src[j, i]
 
-                    if fabs(center - val) < threshold:
-                        acc += val
-                        count += 1
-            
-            dst[y, x] = acc / count
+                        if fabs(center - val) < threshold:
+                            acc += val
+                            count += 1
+                
+                dst[y, x] = acc / count
