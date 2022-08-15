@@ -115,7 +115,7 @@ class PyPlugin(PyPluginBase[FD_T]):
         def process(self, f: vs.VideoFrame, src: Any, dst: Any, plane: int | None, n: int) -> None:
             raise NotImplementedError
     else:
-        process: FDC_SELF[FD_T]
+        process: Callable[[PyPlugin[FD_T], vs.VideoFrame, Any, Any, int | None, int], None]
 
     def __class_getitem__(cls, fdata: Type[FD_T] | None = None) -> Type[PyPlugin[FD_T]]:
         class PyPluginInnerClass(cls):  # type: ignore
@@ -291,7 +291,7 @@ class PyPlugin(PyPluginBase[FD_T]):
 
         return output
 
-    def __call__(self, func: FDC_ONLYSD | FDC_NOSELF | FDC_SELF[FD_T]) -> vs.VideoNode:
+    def __call__(self, func: Callable[..., Any]) -> vs.VideoNode:
         this_args = {'self', 'f', 'src', 'dst', 'plane', 'n'}
 
         annotations = set(func.__annotations__.keys()) - {'return'}
@@ -305,23 +305,19 @@ class PyPlugin(PyPluginBase[FD_T]):
         miss_args = this_args - annotations
 
         if 'self' in annotations:
-            func = partial(func, self)
+            func = partial(func, self)  # type: ignore
+            annotations.remove('self')
 
         if not miss_args:
             self.process = func  # type: ignore
         else:
             def _wrapper(f, src, dst, plane, n) -> Any:  # type: ignore
                 curr_locals = locals()
-                return func(**{name: curr_locals[name] for name in annotations})  # type: ignore
+                return func(**{name: curr_locals[name] for name in annotations})
 
             self.process = _wrapper  # type: ignore
 
         return self.invoke()
-
-
-FDC_ONLYSD = Callable[[Any, Any], None]
-FDC_NOSELF = Callable[[vs.VideoFrame, Any, Any, int | None, int], None]
-FDC_SELF = Callable[[PyPlugin[FD_T], vs.VideoFrame, Any, Any, int | None, int], None]
 
 
 class PyPluginUnavailableBackend(PyPlugin[FD_T]):
