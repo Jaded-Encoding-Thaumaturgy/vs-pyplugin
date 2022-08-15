@@ -46,6 +46,7 @@ class CudaCompileFlags:
 
 @dataclass
 class PyPluginCudaOptions(PyPluginOptions):
+    use_shared_memory: bool = False
     compile_flags: CudaCompileFlags = CudaCompileFlags()
     backend: Literal['nvrtc', 'nvcc'] = 'nvrtc'
     translate_cucomplex: bool = False
@@ -108,8 +109,6 @@ try:
 
         kernel_size: int | tuple[int, int] = 16
 
-        use_shared_memory: bool = False
-
         options: PyPluginCudaOptions = PyPluginCudaOptions()
 
         kernel_kwargs: dict[str, Any]
@@ -151,7 +150,7 @@ try:
             block_x, block_y = self.get_kernel_size(plane, width, height)
 
             kernel_args = dict[str, Any](
-                use_shared_memory=self.use_shared_memory,
+                use_shared_memory=self.options.use_shared_memory,
                 block_x=block_x, block_y=block_y,
                 data_type=get_c_dtype_long(self.ref_clip),
                 is_float=self.ref_clip.format.sample_type is vs.FLOAT,
@@ -267,7 +266,7 @@ try:
 
                 def_shared_mem = self.calc_shared_mem(
                     plane, *block_sizes, self.ref_clip.format.bytes_per_sample
-                ) if self.use_shared_memory else 0
+                ) if self.options.use_shared_memory else 0
 
                 sub_kernel_code = Template(cuda_kernel_code).substitute(kernel_args)
 
