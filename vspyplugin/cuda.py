@@ -112,8 +112,6 @@ try:
 
         options: PyPluginCudaOptions = PyPluginCudaOptions()
 
-        kernel_kwargs: dict[str, Any]
-
         kernel: CudaKernelFunctions
 
         @lru_cache
@@ -173,6 +171,9 @@ try:
             ref_clip: vs.VideoNode,
             clips: list[vs.VideoNode] | None = None,
             *,
+            cuda_kernel: str | tuple[str | Path, str | Sequence[str]] | None = None,
+            kernel_size: int | tuple[int, int] | None = None,
+            use_shared_memory: bool | None = None,
             kernel_kwargs: dict[str, Any] | None = None,
             kernel_planes_kwargs: list[dict[str, Any] | None] | None = None,
             options: PyPluginOptions | None = None,
@@ -189,6 +190,18 @@ try:
                 input_per_plane=input_per_plane, output_per_plane=output_per_plane,
                 min_clips=min_clips, max_clips=max_clips, **kwargs
             )
+
+            arguments = [
+                (cuda_kernel, 'cuda_kernel', None),
+                (kernel_size, 'kernel_size', 16),
+                (use_shared_memory, 'use_shared_memory', True)
+            ]
+
+            for value, name, default in arguments:
+                if value is not None:
+                    setattr(self, name, value)
+                elif not hasattr(self, name) and default is not None:
+                    setattr(self, name, default)
 
             assert self.ref_clip.format
 
