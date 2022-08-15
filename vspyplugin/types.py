@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enum import IntEnum
 
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar, cast
 
@@ -23,3 +24,14 @@ class copy_signature(Generic[F]):
 
     def __call__(self, wrapped: Callable[..., Any]) -> F:
         return cast(F, wrapped)
+
+
+class FilterMode(IntEnum):
+    Serial = 0
+    """Serial processing"""
+
+    Parallel = 1
+    """Parallel requests"""
+
+    Async = 2
+    """Async and parallelized requests"""
