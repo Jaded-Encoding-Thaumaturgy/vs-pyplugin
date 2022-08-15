@@ -7,12 +7,14 @@ import vapoursynth as vs
 from numpy.typing import NDArray
 from stgfunc import set_output, source
 from vspyplugin import PyPluginCuda
+from vspyplugin.types import FilterMode
 
 core = vs.core
 
 
 class BilateralFilter(PyPluginCuda[None]):
     cuda_kernel = 'bilateral'
+    filter_mode = FilterMode.Serial
 
     input_per_plane = True
     output_per_plane = True

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import vapoursynth as vs
@@ -257,7 +258,83 @@ try:
 
                             return self.from_device(fout)
             else:
-                raise NotImplementedError
+                output_func: Callable[
+                    [vs.VideoFrame, int], vs.VideoFrame
+                ] | Callable[
+                    [list[vs.VideoFrame], int], vs.VideoFrame
+                ]
+
+                if self.output_per_plane:
+                    if self.clips:
+                        def output_func(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
+                            fout = f[0].copy()
+
+                            pre_stacked_clips = {
+                                idx: _stack_frame(frame, idx)
+                                for idx, frame in enumerate(f)
+                                if not self._input_per_plane[idx]
+                            }
+
+                            for p in range(fout.format.num_planes):
+                                inputs_data = [
+                                    self.to_device(frame, idx, p)
+                                    if self._input_per_plane[idx]
+                                    else pre_stacked_clips[idx]
+                                    for idx, frame in enumerate(f)
+                                ]
+
+                                self.process(fout, inputs_data, dst_stacked_planes[p], p, n)
+
+                            return self.from_device(fout)
+                    else:
+                        if self._input_per_plane[0]:
+                            def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                                fout = f.copy()
+
+                                for p in range(fout.format.num_planes):
+                                    self.process(fout, self.to_device(f, 0, p), dst_stacked_planes[p], p, n)
+
+                                return self.from_device(fout)
+                        else:
+                            def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                                fout = f.copy()
+
+                                pre_stacked_clip = _stack_frame(f, 0)
+
+                                for p in range(fout.format.num_planes):
+                                    self.process(fout, pre_stacked_clip, dst_stacked_planes[p], p, n)
+
+                                return self.from_device(fout)
+                else:
+                    if self.clips:
+                        def output_func(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
+                            fout = f[0].copy()
+
+                            self.process(fout, [
+                                _stack_frame(frame, idx)
+                                for idx, frame in enumerate(f, 1)
+                            ], dst_stacked_arr, None, n)
+
+                            return self.from_device(fout)
+                    else:
+                        def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                            fout = f.copy()
+
+                            self.process(fout, _stack_whole_frame(f, 0), dst_stacked_arr, None, n)
+
+                            return self.from_device(fout)
+
+                modify_frame_partial = partial(
+                    vs.core.std.ModifyFrame,
+                    self.ref_clip,
+                    (self.ref_clip, *self.clips),
+                    output_func
+                )
+
+                if self.filter_mode is FilterMode.Serial:
+                    output = modify_frame_partial()
+                else:
+                    output = self.ref_clip.std.FrameEval(lambda n: modify_frame_partial())
 
             return output
 
