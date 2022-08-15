@@ -169,12 +169,26 @@ try:
             return kwargs | kernel_args | dict(width=width, height=height)
 
         def __init__(
-            self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None,
+            self,
+            ref_clip: vs.VideoNode,
+            clips: list[vs.VideoNode] | None = None,
+            *,
             kernel_kwargs: dict[str, Any] | None = None,
             kernel_planes_kwargs: list[dict[str, Any] | None] | None = None,
+            options: PyPluginOptions | None = None,
+            input_per_plane: bool | list[bool] | None = None,
+            output_per_plane: bool | None = None,
+            channels_last: bool | None = None,
+            min_clips: int | None = None,
+            max_clips: int | None = None,
             **kwargs: Any
         ) -> None:
-            super().__init__(ref_clip, clips, **kwargs)
+            super().__init__(
+                ref_clip, clips,
+                options=options, channels_last=channels_last,
+                input_per_plane=input_per_plane, output_per_plane=output_per_plane,
+                min_clips=min_clips, max_clips=max_clips, **kwargs
+            )
 
             assert self.ref_clip.format
 

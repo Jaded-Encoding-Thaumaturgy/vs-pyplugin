@@ -7,6 +7,7 @@ import vapoursynth as vs
 from .backends import PyBackend
 from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
 from .coroutines import frame_eval_async, get_frame, get_frames
+from .types import copy_signature
 
 __all__ = [
     'PyPluginNumpy'
@@ -50,8 +51,9 @@ try:
         def _get_data_len(self, arr: NDArray[Any]) -> int:
             return arr.shape[0] * arr.shape[1] * arr.dtype.itemsize
 
-        def __init__(self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None, **kwargs: Any) -> None:
-            super().__init__(ref_clip, clips, **kwargs)
+        @copy_signature(PyPlugin.__init__)
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
 
             no_slice = slice(None, None, None)
             self._slice_idxs = cast(list[slice], [

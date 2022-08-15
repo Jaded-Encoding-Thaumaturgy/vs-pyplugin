@@ -9,7 +9,7 @@ import vapoursynth as vs
 
 from .backends import PyBackend
 from .coroutines import frame_eval_async, get_frame, get_frames
-from .types import SupportsKeysAndGetItem
+from .types import SupportsKeysAndGetItem, copy_signature
 
 __all__ = [
     'PyPlugin',
@@ -325,6 +325,7 @@ FDC_SELF = Callable[[PyPlugin[FD_T], vs.VideoFrame, Any, Any, int | None, int], 
 
 
 class PyPluginUnavailableBackend(PyPlugin[FD_T]):
+    @copy_signature(PyPlugin.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         from .exceptions import UnavailableBackend
 

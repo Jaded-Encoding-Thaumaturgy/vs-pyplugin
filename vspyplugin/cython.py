@@ -3,10 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
 
-import vapoursynth as vs
-
 from .backends import PyBackend
 from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
+from .types import copy_signature
 
 __all__ = [
     'PyPluginCython'
@@ -51,7 +50,8 @@ try:
 
         kernel: CythonKernelFunctions
 
-        def __init__(self, ref_clip: vs.VideoNode, clips: list[vs.VideoNode] | None = None, **kwargs: Any) -> None:
+        @copy_signature(PyPlugin.__init__)
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             import random
             import string
             import subprocess
@@ -60,7 +60,7 @@ try:
             from os import listdir, makedirs, remove
             from shutil import copyfile, move
 
-            super().__init__(ref_clip, clips, **kwargs)
+            super().__init__(*args, **kwargs)
 
             assert self.ref_clip.format
 
