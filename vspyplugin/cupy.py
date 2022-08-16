@@ -98,11 +98,13 @@ try:
             return dst
 
         @staticmethod
-        def alloc_plane_arrays(clip: vs.VideoNode) -> list[NDArray[Any]]:
+        def alloc_plane_arrays(clip: vs.VideoNode | vs.VideoFrame, fill: int | float | None = 0) -> list[NDArray[Any]]:
             assert clip.format
 
+            function = cp.empty if fill is None else cp.zeros if fill == 0 else partial(cp.full, fill_value=fill)
+
             return [
-                cp.zeros((height, width), PyPluginNumpy.get_dtype(clip), 'C')
+                function((height, width), dtype=PyPluginNumpy.get_dtype(clip), order='C')
                 for _, width, height in get_resolutions(clip, True)
             ]
 
