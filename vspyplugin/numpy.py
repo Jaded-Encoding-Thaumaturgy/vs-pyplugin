@@ -1,6 +1,6 @@
 from __future__ import annotations
-from functools import partial
 
+from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import vapoursynth as vs
@@ -9,6 +9,7 @@ from .backends import PyBackend
 from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
 from .coroutines import frame_eval_async, get_frame, get_frames
 from .types import FilterMode, copy_signature
+from .utils import get_resolutions
 
 __all__ = [
     'PyPluginNumpy'
@@ -49,6 +50,17 @@ try:
                 _cache_dtypes[fmt.id] = dtype(f'{stype}{fmt.bits_per_sample}')
 
             return _cache_dtypes[fmt.id]
+
+        @staticmethod
+        def alloc_plane_arrays(clip: vs.VideoNode | vs.VideoFrame, fill: int | float | None = 0) -> list[NDArray[Any]]:
+            assert clip.format
+
+            function = np.empty if fill is None else np.zeros if fill == 0 else partial(np.full, fill_value=fill)
+
+            return [
+                function((height, width), dtype=PyPluginNumpy.get_dtype(clip), order='C')  # type: ignore
+                for _, width, height in get_resolutions(clip, True)
+            ]
 
         def _get_data_len(self, arr: NDArray[Any]) -> int:
             return arr.shape[0] * arr.shape[1] * arr.dtype.itemsize
