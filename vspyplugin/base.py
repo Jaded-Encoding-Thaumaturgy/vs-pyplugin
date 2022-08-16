@@ -169,10 +169,10 @@ class PyPlugin(PyPluginBase[FD_T]):
                 setattr(self, name, value)
                 kwargs.pop(name)
 
-        try:
-            self.fd = self.filter_data(**kwargs)  # type: ignore
-        except BaseException:
+        if self.filter_data is None:
             self.fd = None  # type: ignore
+        else:
+            self.fd = self.filter_data(**kwargs)  # type: ignore
 
         n_clips = 1 + len(self.clips)
 
