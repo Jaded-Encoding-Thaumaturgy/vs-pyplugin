@@ -97,11 +97,12 @@ try:
 
             return dst
 
-        def _alloc_arrays(self, clip: vs.VideoNode) -> list[NDArray[Any]]:
+        @staticmethod
+        def alloc_plane_arrays(clip: vs.VideoNode) -> list[NDArray[Any]]:
             assert clip.format
 
             return [
-                cp.zeros((height, width), self.get_dtype(clip), 'C')
+                cp.zeros((height, width), PyPluginNumpy.get_dtype(clip), 'C')
                 for _, width, height in get_resolutions(clip, True)
             ]
 
@@ -127,13 +128,13 @@ try:
 
             self.cuda_is_101 = 10010 <= runtime.runtimeGetVersion()
 
-            src_arrays = [self._alloc_arrays(clip) for clip in (self.ref_clip, *self.clips)]
+            src_arrays = [self.alloc_plane_arrays(clip) for clip in (self.ref_clip, *self.clips)]
             self.src_arrays = [
                 [array[plane] for array in src_arrays] for plane in range(self.ref_clip.format.num_planes)
             ]
             self.src_data_lengths = [[self._get_data_len(a) for a in arr] for arr in self.src_arrays]
 
-            self.out_arrays = self._alloc_arrays(self.ref_clip)
+            self.out_arrays = self.alloc_plane_arrays(self.ref_clip)
             self.out_data_lengths = [self._get_data_len(arr) for arr in self.out_arrays]
 
         @PyPlugin.ensure_output
@@ -165,7 +166,7 @@ try:
                 return _stack_whole_frame(frame, idx)
 
             if self.output_per_plane:
-                dst_stacked_planes = self._alloc_arrays(self.ref_clip)
+                dst_stacked_planes = self.alloc_plane_arrays(self.ref_clip)
             else:
                 shape = (self.ref_clip.height, self.ref_clip.width)
 
