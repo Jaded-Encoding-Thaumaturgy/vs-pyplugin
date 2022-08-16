@@ -145,7 +145,7 @@ class PyPlugin(PyPluginBase[FD_T]):
             (options, 'options', PyPluginOptions()),
             (input_per_plane, 'input_per_plane', True),
             (output_per_plane, 'output_per_plane', True),
-            (channels_last, 'channels_last', True),
+            (channels_last, 'channels_last', False),
             (min_clips, 'min_clips', 1),
             (max_clips, 'max_clips', -1)
         ]
