@@ -27,6 +27,8 @@ try:
     else:
         from numpy.core.numeric import concatenate
 
+    _cache_dtypes = dict[int, dtype[Any]]()
+
     class PyPluginNumpy(PyPlugin[FD_T]):
         backend = this_backend
 
@@ -38,16 +40,15 @@ try:
             for plane in range(dst.format.num_planes):
                 npcopyto(self.to_host(dst, plane), src[self._slice_idxs[plane]])
 
-        _cache_dtypes = dict[int, dtype[Any]]()
-
-        def get_dtype(self, clip: vs.VideoNode | vs.VideoFrame) -> dtype[Any]:
+        @staticmethod
+        def get_dtype(clip: vs.VideoNode | vs.VideoFrame) -> dtype[Any]:
             fmt = cast(vs.VideoFormat, clip.format)
 
-            if fmt.id not in self._cache_dtypes:
+            if fmt.id not in _cache_dtypes:
                 stype = 'float' if fmt.sample_type is vs.FLOAT else 'uint'
-                self._cache_dtypes[fmt.id] = dtype(f'{stype}{fmt.bits_per_sample}')
+                _cache_dtypes[fmt.id] = dtype(f'{stype}{fmt.bits_per_sample}')
 
-            return self._cache_dtypes[fmt.id]
+            return _cache_dtypes[fmt.id]
 
         def _get_data_len(self, arr: NDArray[Any]) -> int:
             return arr.shape[0] * arr.shape[1] * arr.dtype.itemsize
