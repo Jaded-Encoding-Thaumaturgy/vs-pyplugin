@@ -115,8 +115,6 @@ try:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
 
-            assert self.ref_clip.format
-
             if self.cuda_num_streams != 0 and self.cuda_num_streams < 2:
                 raise ValueError(f'{self.__class__.__name__}: cuda_num_streams must be 0 or >= 2!')
 
@@ -130,6 +128,9 @@ try:
 
             self.cuda_is_101 = 10010 <= runtime.runtimeGetVersion()
 
+        def allocate_src_dst_memory(self) -> None:
+            assert self.ref_clip.format
+
             src_arrays = [self.alloc_plane_arrays(clip) for clip in (self.ref_clip, *self.clips)]
             self.src_arrays = [
                 [array[plane] for array in src_arrays] for plane in range(self.ref_clip.format.num_planes)
@@ -139,10 +140,32 @@ try:
             self.out_arrays = self.alloc_plane_arrays(self.ref_clip)
             self.out_data_lengths = [self._get_data_len(arr) for arr in self.out_arrays]
 
+            if self.output_per_plane:
+                self.dst_stacked_planes = self.alloc_plane_arrays(self.ref_clip)
+            else:
+                shape = (self.ref_clip.height, self.ref_clip.width)
+
+                shape_channels: tuple[int, ...]
+                if self.is_single_plane[0]:
+                    shape_channels = shape + (1, )
+                elif self.channels_last:
+                    shape_channels = shape + (3, )
+                else:
+                    shape_channels = (3, ) + shape
+
+                self.dst_stacked_arr = cp.zeros(shape_channels, self.get_dtype(self.ref_clip))
+                self.dst_stacked_planes = [
+                    self.dst_stacked_arr[self._slice_idxs[plane]]
+                    for plane in range(self.ref_clip.format.num_planes)
+                ]
+
+            self._dst_pointers = [int(source.data) for source in self.dst_stacked_planes]
+
         @PyPlugin.ensure_output
         def invoke(self) -> vs.VideoNode:
             assert self.ref_clip.format
 
+            self.allocate_src_dst_memory()
             self._memcpy_func = self._memcpy_async if self.cuda_num_streams else runtime.memcpy
 
             if self.ref_clip.format.num_planes == 1:
@@ -167,27 +190,6 @@ try:
 
                 return _stack_whole_frame(frame, idx)
 
-            if self.output_per_plane:
-                dst_stacked_planes = self.alloc_plane_arrays(self.ref_clip)
-            else:
-                shape = (self.ref_clip.height, self.ref_clip.width)
-
-                shape_channels: tuple[int, ...]
-                if self.is_single_plane[0]:
-                    shape_channels = shape + (1, )
-                elif self.channels_last:
-                    shape_channels = shape + (3, )
-                else:
-                    shape_channels = (3, ) + shape
-
-                dst_stacked_arr = cp.zeros(shape_channels, self.get_dtype(self.ref_clip))
-                dst_stacked_planes = [
-                    dst_stacked_arr[self._slice_idxs[plane]]
-                    for plane in range(self.ref_clip.format.num_planes)
-                ]
-
-            self._dst_pointers = [int(source.data) for source in dst_stacked_planes]
-
             if self.filter_mode is FilterMode.Async:
                 if self.output_per_plane:
                     if self.clips:
@@ -210,7 +212,7 @@ try:
                                     for idx, frame in enumerate(frames)
                                 ]
 
-                                self.process(fout, inputs_data, dst_stacked_planes[p], p, n)
+                                self.process(fout, inputs_data, self.dst_stacked_planes[p], p, n)
 
                             return self.from_device(fout)
                     else:
@@ -221,7 +223,7 @@ try:
                                 fout = frame.copy()
 
                                 for p in range(fout.format.num_planes):
-                                    self.process(fout, self.to_device(frame, 0, p), dst_stacked_planes[p], p, n)
+                                    self.process(fout, self.to_device(frame, 0, p), self.dst_stacked_planes[p], p, n)
 
                                 return self.from_device(fout)
                         else:
@@ -233,7 +235,7 @@ try:
                                 pre_stacked_clip = _stack_frame(frame, 0)
 
                                 for p in range(fout.format.num_planes):
-                                    self.process(fout, pre_stacked_clip, dst_stacked_planes[p], p, n)
+                                    self.process(fout, pre_stacked_clip, self.dst_stacked_planes[p], p, n)
 
                                 return self.from_device(fout)
                 else:
@@ -248,7 +250,7 @@ try:
 
                             self.process(fout, await wait(
                                 inner_stack(clip, n, idx) for idx, clip in enumerate(self.clips, 1)
-                            ), dst_stacked_arr, None, n)
+                            ), self.dst_stacked_arr, None, n)
 
                             return self.from_device(fout)
                     else:
@@ -257,7 +259,7 @@ try:
                             frame = await get_frame(self.ref_clip, n)
                             fout = frame.copy()
 
-                            self.process(fout, _stack_whole_frame(frame, 0), dst_stacked_arr, None, n)
+                            self.process(fout, _stack_whole_frame(frame, 0), self.dst_stacked_arr, None, n)
 
                             return self.from_device(fout)
             else:
@@ -286,7 +288,7 @@ try:
                                     for idx, frame in enumerate(f)
                                 ]
 
-                                self.process(fout, inputs_data, dst_stacked_planes[p], p, n)
+                                self.process(fout, inputs_data, self.dst_stacked_planes[p], p, n)
 
                             return self.from_device(fout)
                     else:
@@ -295,7 +297,7 @@ try:
                                 fout = f.copy()
 
                                 for p in range(fout.format.num_planes):
-                                    self.process(fout, self.to_device(f, 0, p), dst_stacked_planes[p], p, n)
+                                    self.process(fout, self.to_device(f, 0, p), self.dst_stacked_planes[p], p, n)
 
                                 return self.from_device(fout)
                         else:
@@ -305,7 +307,7 @@ try:
                                 pre_stacked_clip = _stack_frame(f, 0)
 
                                 for p in range(fout.format.num_planes):
-                                    self.process(fout, pre_stacked_clip, dst_stacked_planes[p], p, n)
+                                    self.process(fout, pre_stacked_clip, self.dst_stacked_planes[p], p, n)
 
                                 return self.from_device(fout)
                 else:
@@ -316,14 +318,14 @@ try:
                             self.process(fout, [
                                 _stack_frame(frame, idx)
                                 for idx, frame in enumerate(f, 1)
-                            ], dst_stacked_arr, None, n)
+                            ], self.dst_stacked_arr, None, n)
 
                             return self.from_device(fout)
                     else:
                         def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
                             fout = f.copy()
 
-                            self.process(fout, _stack_whole_frame(f, 0), dst_stacked_arr, None, n)
+                            self.process(fout, _stack_whole_frame(f, 0), self.dst_stacked_arr, None, n)
 
                             return self.from_device(fout)
 
