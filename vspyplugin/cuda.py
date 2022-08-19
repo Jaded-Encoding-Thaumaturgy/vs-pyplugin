@@ -274,7 +274,7 @@ try:
             _cache_kernel_funcs = dict[tuple[int, str], CudaKernelFunction]()
 
             def _get_kernel_func(name: str, plane: int, width: int, height: int) -> CudaKernelFunction:
-                assert self.ref_clip.format and cuda_kernel_code and kernel_kwargs
+                assert self.ref_clip.format and cuda_kernel_code and kernel_kwargs is not None
 
                 kernel_args = self.get_kernel_args(plane, name, width, height, **kernel_kwargs)
                 block_sizes = self.get_kernel_size(plane, name, width, height)[:2]
