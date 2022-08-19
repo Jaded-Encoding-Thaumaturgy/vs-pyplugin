@@ -171,7 +171,7 @@ class PyPlugin(PyPluginBase[FD_T]):
 
         if self.filter_data is None:
             self.fd = None  # type: ignore
-        else:
+        elif not isinstance(self.filter_data, TypeVar):
             self.fd = self.filter_data(**kwargs)  # type: ignore
 
         n_clips = 1 + len(self.clips)
