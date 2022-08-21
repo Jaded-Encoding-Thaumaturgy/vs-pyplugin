@@ -169,10 +169,10 @@ class PyPlugin(PyPluginBase[FD_T]):
                 setattr(self, name, value)
                 kwargs.pop(name)
 
-        if not isinstance(self.filter_data, TypeVar):
+        if self.filter_data and not isinstance(self.filter_data, TypeVar):
             self.fd = self.filter_data(**kwargs)  # type: ignore
         else:
-            self.fd = None
+            self.fd = None  # type: ignore
 
         n_clips = 1 + len(self.clips)
 

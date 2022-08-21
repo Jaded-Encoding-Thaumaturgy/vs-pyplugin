@@ -1,6 +1,6 @@
 from __future__ import annotations
-from enum import IntEnum
 
+from enum import IntEnum
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar, cast
 
 __all__ = [
