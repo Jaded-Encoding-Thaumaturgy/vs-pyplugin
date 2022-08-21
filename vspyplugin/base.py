@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial, wraps
 from itertools import count
-from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Type, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Generic, Type, TypeVar, cast, overload
 
 import vapoursynth as vs
 
@@ -24,7 +24,7 @@ F = TypeVar('F', bound=Callable[..., vs.VideoNode])
 
 @dataclass
 class PyPluginOptions:
-    float_processing: bool | Literal[16, 32] = False
+    force_precision: int | None = None
     shift_chroma: bool = False
 
     @overload
@@ -41,17 +41,15 @@ class PyPluginOptions:
 
         assert (fmt := clip.format)
 
-        if self.float_processing:
-            bps = 32 if self.float_processing is True else self.float_processing
-
-            if fmt.sample_type is not vs.FLOAT or fmt.bits_per_sample != bps:
+        if self.force_precision:
+            if fmt.sample_type is not vs.FLOAT or fmt.bits_per_sample != self.force_precision:
                 clip = clip.resize.Point(
-                    format=fmt.replace(sample_type=vs.FLOAT, bits_per_sample=bps).id,
+                    format=fmt.replace(sample_type=vs.FLOAT, bits_per_sample=self.force_precision).id,
                     dither_type='none'
                 )
 
         if self.shift_chroma:
-            if fmt.sample_type is not vs.FLOAT and not self.float_processing:
+            if fmt.sample_type is not vs.FLOAT and self.force_precision != 32:
                 raise ValueError(
                     f'{self.__class__.__name__}: You need to have a clip with float sample type for shift_chroma=True!'
                 )

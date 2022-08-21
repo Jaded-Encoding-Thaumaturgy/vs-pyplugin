@@ -18,7 +18,7 @@ class SigmaFilterData:
 
 
 class SigmaFilter(PyPluginCython[SigmaFilterData]):
-    options = PyPluginOptions(float_processing=True)
+    options = PyPluginOptions(force_precision=32)
     cython_kernel = 'sigma_filter'
     input_per_plane = True
     output_per_plane = True
