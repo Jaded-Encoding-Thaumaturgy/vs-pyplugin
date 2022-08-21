@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 import vapoursynth as vs
 
 from .backends import PyBackend
-from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
+from .base import FD_T, PyPluginUnavailableBackend, PyPlugin
 from .coroutines import frame_eval_async, get_frame, get_frames, wait
 from .types import FilterMode, copy_signature
 from .utils import get_resolutions
@@ -43,9 +43,7 @@ try:
 
             self.cuda_device.synchronize()
 
-        def _memcpy_async(
-            self, dst_ptr: int, src_ptr: int, amount: int, kind: int, sync: bool = True
-        ) -> list[cuda.Event]:
+        def _memcpy_async(self, dst_ptr: int, src_ptr: int, amount: int, kind: int) -> list[cuda.Event]:
             offset = 0
 
             stop_events = []
@@ -56,9 +54,6 @@ try:
                     stop_events.append(cuda.Event())
 
                     offset += amount
-
-            if sync:
-                self._synchronize(stop_events)
 
             return stop_events
 
@@ -81,8 +76,7 @@ try:
                             cast(int, dst.get_write_ptr(plane).value),
                             self._dst_pointers[plane],
                             self.out_data_lengths[plane],
-                            runtime.memcpyDeviceToHost,
-                            False
+                            runtime.memcpyDeviceToHost
                         )
                     )
                 self._synchronize(events)
