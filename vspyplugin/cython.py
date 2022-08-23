@@ -182,7 +182,7 @@ try:
         ...
 
     this_backend.set_available(True)
-except BaseException as e:
+except ModuleNotFoundError as e:
     this_backend.set_available(False, e)
 
     class PyPluginCython(PyPluginUnavailableBackend[FD_T]):  # type: ignore
