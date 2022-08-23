@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import partial, wraps
+from functools import partial
 from itertools import count
-from typing import TYPE_CHECKING, Any, Callable, Generic, Type, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Type, TypeVar, overload
 
 import vapoursynth as vs
 
+from .abstracts import PyPluginBackendBase
 from .backends import PyBackend
 from .coroutines import frame_eval_async, get_frame, get_frames
 from .types import FilterMode, SupportsKeysAndGetItem, copy_signature
@@ -68,17 +69,7 @@ class PyPluginOptions:
         return clip
 
 
-class PyPluginBase(Generic[FD_T]):
-    @staticmethod
-    def ensure_output(func: F) -> F:
-        @wraps(func)
-        def _wrapper(self: PyPlugin[FD_T], *args: Any, **kwargs: Any) -> Any:
-            return self.options.ensure_output(self, func(self, *args, **kwargs))
-
-        return cast(F, _wrapper)
-
-
-class PyPlugin(PyPluginBase[FD_T]):
+class PyPlugin(PyPluginBackendBase[FD_T]):
     if TYPE_CHECKING:
         __slots__ = (
             'backend', 'filter_data', 'clips', 'ref_clip', 'fd',
@@ -213,7 +204,7 @@ class PyPlugin(PyPluginBase[FD_T]):
                     f'{class_name}: You can\'t have input_per_plane=False with a subsampled clip! ({clip_type})'
                 )
 
-    @PyPluginBase.ensure_output
+    @PyPluginBackendBase.ensure_output
     def invoke(self) -> vs.VideoNode:
         assert self.ref_clip.format
 

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, Callable, Generic, Literal, Mapping, TypeAlias, TypeVar, Union, overload
+from functools import wraps
+from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Mapping, TypeAlias, TypeVar, Union, cast, overload
 
 import vapoursynth as vs
 
@@ -11,8 +12,14 @@ __all__ = [
 ]
 
 F = TypeVar('F')
+FVD = TypeVar('FVD', bound=Callable[..., vs.VideoNode])
 FD_T = TypeVar('FD_T')
 DT_T = TypeVar('DT_T')
+
+if TYPE_CHECKING:
+    from .base import PyPlugin as CLS_T
+else:
+    CLS_T = TypeVar('CLS_T', bound=Generic)
 
 PassthroughC = Callable[[F], F]
 
@@ -141,3 +148,11 @@ class PyPluginBackendBase(Generic[DT_T], metaclass=PyPluginBackendMeta[DT_T]):  
             return func
 
         return _wrapper
+
+    @staticmethod
+    def ensure_output(func: FVD) -> FVD:
+        @wraps(func)
+        def _wrapper(self: CLS_T[FD_T], *args: Any, **kwargs: Any) -> Any:
+            return self.options.ensure_output(self, func(self, *args, **kwargs))
+
+        return cast(FVD, _wrapper)
