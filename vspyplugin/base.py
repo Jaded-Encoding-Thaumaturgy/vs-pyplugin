@@ -194,8 +194,7 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
                     f'{class_name}: You can\'t have input_per_plane=False with a subsampled clip! ({clip_type})'
                 )
 
-    @PyPluginBackendBase.ensure_output
-    def invoke(self) -> vs.VideoNode:
+    def _invoke_func(self) -> OutputFunc_T:
         assert self.ref_clip.format
 
         def _stack_frame(frame: vs.VideoFrame, idx: int) -> memoryview | list[memoryview]:
@@ -268,9 +267,12 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
 
                         return fout
 
-        return self._invoke_process(output_func)
+        return output_func
 
-    def _invoke_process(self, output_func: OutputFunc_T) -> vs.VideoNode:
+    @PyPluginBackendBase.ensure_output
+    def invoke(self) -> vs.VideoNode:
+        output_func = self._invoke_func()
+
         modify_frame_partial = partial(
             vs.core.std.ModifyFrame, self.ref_clip, (self.ref_clip, *self.clips), output_func
         )
