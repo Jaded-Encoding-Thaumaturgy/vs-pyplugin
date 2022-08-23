@@ -121,6 +121,7 @@ try:
             self.cuda_streams = [cuda.Stream(non_blocking=True) for _ in range(self.cuda_num_streams)]
 
             self.cuda_is_101 = 10010 <= runtime.runtimeGetVersion()
+            self._memcpy_func = self._memcpy_async if self.cuda_num_streams else runtime.memcpy
 
         def allocate_src_dst_memory(self) -> None:
             assert self.ref_clip.format
@@ -155,29 +156,29 @@ try:
 
             self._dst_pointers = [int(source.data) for source in self.dst_stacked_planes]
 
+    class PyPluginCupy(Generic[FD_T], PyPluginCupyBase[FD_T, NDArray[Any]]):
         def _invoke_func(self) -> OutputFunc_T:
             assert self.ref_clip.format
 
             self.allocate_src_dst_memory()
-            self._memcpy_func = self._memcpy_async if self.cuda_num_streams else runtime.memcpy
 
             if self.ref_clip.format.num_planes == 1:
-                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDT_T:
+                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
                     return self.to_device(frame, idx, 0)
             elif self.channels_last:
                 stack_slice = (slice(None), slice(None), None)
 
-                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDT_T:
+                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
                     return concatenate([
                         self.to_device(frame, idx, plane)[stack_slice] for plane in {0, 1, 2}
                     ], axis=2)
             else:
-                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDT_T:
+                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
                     return concatenate([
                         self.to_device(frame, idx, plane) for plane in {0, 1, 2}
                     ], axis=0)
 
-            def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDT_T:
+            def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
                 if self.is_single_plane[idx]:
                     return self.to_device(frame, idx, 0)
 
@@ -187,6 +188,9 @@ try:
 
             if self.output_per_plane:
                 if self.clips:
+                    assert self.process_MultiSrcIPP
+                    func_MultiSrcIPP = self.process_MultiSrcIPP
+
                     def output_func(f: tuple[vs.VideoFrame, ...], n: int) -> vs.VideoFrame:
                         fout = f[0].copy()
 
@@ -204,16 +208,19 @@ try:
                                 for idx, frame in enumerate(f)
                             ]
 
-                            self.process(fout, inputs_data, self.dst_stacked_planes[p], p, n)
+                            func_MultiSrcIPP(self, inputs_data, self.dst_stacked_planes[p], fout, p, n)
 
                         return self.from_device(fout)
                 else:
+                    assert self.process_SingleSrcIPP
+                    func_SingleSrcIPP = self.process_SingleSrcIPP
+
                     if self._input_per_plane[0]:
                         def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
                             fout = f.copy()
 
                             for p in range(fout.format.num_planes):
-                                self.process(fout, self.to_device(f, 0, p), self.dst_stacked_planes[p], p, n)
+                                func_SingleSrcIPP(self, self.to_device(f, 0, p), self.dst_stacked_planes[p], fout, p, n)
 
                             return self.from_device(fout)
                     else:
@@ -223,32 +230,35 @@ try:
                             pre_stacked_clip = _stack_frame(f, 0)
 
                             for p in range(fout.format.num_planes):
-                                self.process(fout, pre_stacked_clip, self.dst_stacked_planes[p], p, n)
+                                func_SingleSrcIPP(self, pre_stacked_clip, self.dst_stacked_planes[p], fout, p, n)
 
                             return self.from_device(fout)
             else:
                 if self.clips:
+                    assert self.process_MultiSrcIPF
+                    func_MultiSrcIPF = self.process_MultiSrcIPF
+
                     def output_func(f: tuple[vs.VideoFrame, ...], n: int) -> vs.VideoFrame:
                         fout = f[0].copy()
 
-                        self.process(fout, [
-                            _stack_frame(frame, idx)
-                            for idx, frame in enumerate(f, 1)
-                        ], self.dst_stacked_arr, None, n)
+                        func_MultiSrcIPF(
+                            self, [_stack_frame(frame, idx) for idx, frame in enumerate(f)],
+                            self.dst_stacked_arr, fout, n
+                        )
 
                         return self.from_device(fout)
                 else:
+                    assert self.process_SingleSrcIPF
+                    func_SingleSrcIPF = self.process_SingleSrcIPF
+
                     def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
                         fout = f.copy()
 
-                        self.process(fout, _stack_whole_frame(f, 0), self.dst_stacked_arr, None, n)
+                        func_SingleSrcIPF(self, _stack_whole_frame(f, 0), self.dst_stacked_arr, fout, n)
 
                         return self.from_device(fout)
 
             return output_func
-
-    class PyPluginCupy(Generic[FD_T], PyPluginCupyBase[FD_T, NDArray[Any]]):
-        ...
 
     this_backend.set_available(True)
 except BaseException as e:
