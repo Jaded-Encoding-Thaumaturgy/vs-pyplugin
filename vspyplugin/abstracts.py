@@ -81,12 +81,7 @@ class PyPluginBackendOverloadedDict(dict[str, Any]):
         return f'process_{mode.name}'
 
 
-class PyPluginBackendMeta(Generic[DT_T], type):
-    process_SingleSrcIPP: ProcessMode.SingleSrcIPP_T[DT_T] | None
-    process_MultiSrcIPP: ProcessMode.MultiSrcIPP_T[DT_T] | None
-    process_SingleSrcIPF: ProcessMode.SingleSrcIPF_T[DT_T] | None
-    process_MultiSrcIPF: ProcessMode.MultiSrcIPF_T[DT_T] | None
-
+class PyPluginBackendMeta(type):
     @classmethod
     def __prepare__(metacls, name: str, bases: tuple[type, ...], /, **kwargs: Any) -> Mapping[str, object]:
         return PyPluginBackendOverloadedDict(
@@ -96,10 +91,15 @@ class PyPluginBackendMeta(Generic[DT_T], type):
         )
 
 
-class PyPluginBackendBase(Generic[DT_T], metaclass=PyPluginBackendMeta[DT_T]):  # type: ignore
+class PyPluginBackendBase(Generic[DT_T], metaclass=PyPluginBackendMeta):
     DT: TypeAlias = DT_T  # type: ignore
     DTL: TypeAlias = list[DT_T]  # type: ignore
     DTA: TypeAlias = DT_T | list[DT_T]  # type: ignore
+
+    process_SingleSrcIPP: ProcessMode.SingleSrcIPP_T[DT_T] | None
+    process_MultiSrcIPP: ProcessMode.MultiSrcIPP_T[DT_T] | None
+    process_SingleSrcIPF: ProcessMode.SingleSrcIPF_T[DT_T] | None
+    process_MultiSrcIPF: ProcessMode.MultiSrcIPF_T[DT_T] | None
 
     @overload
     @staticmethod
