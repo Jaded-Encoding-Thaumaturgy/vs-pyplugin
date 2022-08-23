@@ -91,12 +91,6 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
 
     fd: FD_T
 
-    if TYPE_CHECKING:
-        def process(self, f: vs.VideoFrame, src: Any, dst: Any, plane: int | None, n: int) -> None:
-            raise NotImplementedError
-    else:
-        process: Callable[[PyPlugin[FD_T], vs.VideoFrame, Any, Any, int | None, int], None]
-
     def __class_getitem__(cls, fdata: Type[FD_T] | None = None) -> Type[PyPlugin[FD_T]]:
         class PyPluginInnerClass(cls):  # type: ignore
             filter_data = fdata
@@ -194,80 +188,9 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
                     f'{class_name}: You can\'t have input_per_plane=False with a subsampled clip! ({clip_type})'
                 )
 
-    def _invoke_func(self) -> OutputFunc_T:
-        assert self.ref_clip.format
-
-        def _stack_frame(frame: vs.VideoFrame, idx: int) -> memoryview | list[memoryview]:
-            return frame[0] if self.is_single_plane[idx] else [frame[p] for p in {0, 1, 2}]
-
-        output_func: OutputFunc_T
-
-        if self.output_per_plane:
-            if self.clips:
-                def output_func(f: tuple[vs.VideoFrame, ...], n: int) -> vs.VideoFrame:
-                    fout = f[0].copy()
-
-                    pre_stacked_clips = {
-                        idx: _stack_frame(frame, idx)
-                        for idx, frame in enumerate(f)
-                        if not self._input_per_plane[idx]
-                    }
-
-                    for p in range(fout.format.num_planes):
-                        inputs_data = [
-                            frame[p] if self._input_per_plane[idx] else pre_stacked_clips[idx]
-                            for idx, frame in enumerate(f)
-                        ]
-
-                        self.process(fout, inputs_data, fout[p], p, n)
-
-                    return fout
-            else:
-                if self._input_per_plane[0]:
-                    def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-                        fout = f.copy()
-
-                        for p in range(fout.format.num_planes):
-                            self.process(fout, f[p], fout[p], p, n)
-
-                        return fout
-                else:
-                    def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-                        fout = f.copy()
-
-                        pre_stacked_clip = _stack_frame(f, 0)
-
-                        for p in range(fout.format.num_planes):
-                            self.process(fout, pre_stacked_clip, fout[p], p, n)
-
-                        return fout
-        else:
-            if self.clips:
-                def output_func(f: tuple[vs.VideoFrame, ...], n: int) -> vs.VideoFrame:
-                    fout = f[0].copy()
-
-                    src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(f)]
-
-                    self.process(fout, src_arrays, fout, None, n)
-
-                    return fout
-            else:
-                if self.ref_clip.format.num_planes == 1:
-                    def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-                        fout = f.copy()
-
-                        self.process(fout, f[0], fout[0], 0, n)
-
-                        return fout
-                else:
-                    def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-                        fout = f.copy()
-
-                        self.process(fout, f, fout, None, n)
-
-                        return fout
-
-        return output_func
+    if TYPE_CHECKING:
+        def _invoke_func(self) -> OutputFunc_T:
+            ...
 
     @PyPluginBackendBase.ensure_output
     def invoke(self) -> vs.VideoNode:
@@ -315,19 +238,124 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
             annotations.remove('self')
 
         if not miss_args:
-            self.process = func  # type: ignore
+            self.process_SingleSrcIPP = self.process_SingleSrcIPF = func
+            self.process_MultiSrcIPP = self.process_MultiSrcIPF = func
         else:
-            def _wrapper(f, src, dst, plane, n) -> Any:  # type: ignore
+            def _wrapper_ipf(f, src, dst, n) -> Any:  # type: ignore
                 curr_locals = locals()
                 return func(**{name: curr_locals[name] for name in annotations})
 
-            self.process = _wrapper  # type: ignore
+            def _wrapper_ipp(f, src, dst, plane, n) -> Any:  # type: ignore
+                curr_locals = locals()
+                return func(**{name: curr_locals[name] for name in annotations})
+
+            self.process_SingleSrcIPF = self.process_MultiSrcIPF = _wrapper_ipf  # type: ignore
+            self.process_SingleSrcIPP = self.process_MultiSrcIPP = _wrapper_ipp  # type: ignore
 
         return self.invoke()
 
 
 class PyPlugin(Generic[FD_T], PyPluginBase[FD_T, memoryview]):
-    ...
+    def _invoke_func(self) -> OutputFunc_T:
+        assert self.ref_clip.format
+
+        def _stack_frame(frame: vs.VideoFrame, idx: int) -> memoryview | list[memoryview]:
+            return frame[0] if self.is_single_plane[idx] else [frame[p] for p in {0, 1, 2}]
+
+        output_func: OutputFunc_T
+
+        if self.output_per_plane:
+            if self.clips:
+                assert self.process_MultiSrcIPP
+                func_MultiSrcIPP = self.process_MultiSrcIPP
+
+                def output_func(f: tuple[vs.VideoFrame, ...], n: int) -> vs.VideoFrame:
+                    fout = f[0].copy()
+
+                    pre_stacked_clips = {
+                        idx: _stack_frame(frame, idx)
+                        for idx, frame in enumerate(f)
+                        if not self._input_per_plane[idx]
+                    }
+
+                    for p in range(fout.format.num_planes):
+                        inputs_data = [
+                            frame[p] if self._input_per_plane[idx] else pre_stacked_clips[idx]
+                            for idx, frame in enumerate(f)
+                        ]
+
+                        func_MultiSrcIPP(self, inputs_data, fout[p], fout, p, n)  # type: ignore
+
+                    return fout
+            else:
+                assert self.process_SingleSrcIPP
+                func_SingleSrcIPP = self.process_SingleSrcIPP
+
+                if self._input_per_plane[0]:
+                    def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                        fout = f.copy()
+
+                        for p in range(fout.format.num_planes):
+                            func_SingleSrcIPP(self, f[p], fout[p], fout, p, n)
+
+                        return fout
+                else:
+                    def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                        fout = f.copy()
+
+                        pre_stacked_clip = _stack_frame(f, 0)
+
+                        for p in range(fout.format.num_planes):
+                            func_SingleSrcIPP(self, pre_stacked_clip, fout[p], fout, p, n)  # type: ignore
+
+                        return fout
+        else:
+            if self.clips:
+                assert self.process_MultiSrcIPF
+                func_MultiSrcIPF = self.process_MultiSrcIPF
+
+                def output_func(f: tuple[vs.VideoFrame, ...], n: int) -> vs.VideoFrame:
+                    fout = f[0].copy()
+
+                    src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(f)]
+
+                    func_MultiSrcIPF(self, src_arrays, fout, fout, n)  # type: ignore
+
+                    return fout
+            else:
+                if self.ref_clip.format.num_planes == 1:
+                    if self.process_SingleSrcIPP:
+                        assert self.process_SingleSrcIPP
+                        func_SingleSrcIPP = self.process_SingleSrcIPP
+
+                        def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                            fout = f.copy()
+
+                            func_SingleSrcIPP(self, f[0], fout[0], fout, 0, n)
+
+                            return fout
+                    else:
+                        assert self.process_SingleSrcIPF
+                        func_SingleSrcIPF = self.process_SingleSrcIPF
+
+                        def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                            fout = f.copy()
+
+                            func_SingleSrcIPF(self, f[0], fout, fout, n)
+
+                            return fout
+                else:
+                    assert self.process_SingleSrcIPF
+                    func_SingleSrcIPF = self.process_SingleSrcIPF
+
+                    def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                        fout = f.copy()
+
+                        func_SingleSrcIPF(self, f, fout, fout, n)  # type: ignore
+
+                        return fout
+
+        return output_func
 
 
 class PyPluginUnavailableBackend(PyPlugin[FD_T]):
