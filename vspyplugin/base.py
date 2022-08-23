@@ -72,8 +72,7 @@ class PyPluginOptions:
 class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
     if not TYPE_CHECKING:
         __slots__ = (
-            'backend', 'filter_data', 'clips', 'ref_clip', 'fd',
-            '_input_per_plane'
+            'filter_data', 'clips', 'ref_clip', 'fd', '_input_per_plane'
         )
 
     backend: PyBackend = PyBackend.NONE
