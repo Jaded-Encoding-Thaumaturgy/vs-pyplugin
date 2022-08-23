@@ -6,14 +6,17 @@ from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Mapping, Type
 
 import vapoursynth as vs
 
+from .types import SupportsKeysAndGetItem
+
 __all__ = [
     'ProcessMode',
-    'PyPluginBackendBase'
+    'PyPluginBackendBase',
+    'FD_T', 'DT_T'
 ]
 
 F = TypeVar('F')
 FVD = TypeVar('FVD', bound=Callable[..., vs.VideoNode])
-FD_T = TypeVar('FD_T')
+FD_T = TypeVar('FD_T', bound=Any | SupportsKeysAndGetItem[str, object] | None)
 DT_T = TypeVar('DT_T')
 
 if TYPE_CHECKING:

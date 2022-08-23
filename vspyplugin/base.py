@@ -3,24 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial
 from itertools import count
-from typing import TYPE_CHECKING, Any, Callable, Type, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Callable, Generic, Type, TypeVar, overload
 
 import vapoursynth as vs
 
-from .abstracts import PyPluginBackendBase
+from .abstracts import PyPluginBackendBase, FD_T, DT_T
 from .backends import PyBackend
 from .coroutines import frame_eval_async, get_frame, get_frames
-from .types import FilterMode, SupportsKeysAndGetItem, copy_signature
+from .types import FilterMode, copy_signature
 
 __all__ = [
     'PyPlugin',
-    'FD_T',
     'PyPluginUnavailableBackend'
 ]
-
-
-FD_T = TypeVar('FD_T', bound=Any | SupportsKeysAndGetItem[str, object] | None)
-F = TypeVar('F', bound=Callable[..., vs.VideoNode])
 
 
 @dataclass
@@ -69,7 +64,7 @@ class PyPluginOptions:
         return clip
 
 
-class PyPlugin(PyPluginBackendBase[FD_T]):
+class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
     if TYPE_CHECKING:
         __slots__ = (
             'backend', 'filter_data', 'clips', 'ref_clip', 'fd',
@@ -401,6 +396,10 @@ class PyPlugin(PyPluginBackendBase[FD_T]):
             self.process = _wrapper  # type: ignore
 
         return self.invoke()
+
+
+class PyPlugin(Generic[FD_T], PyPluginBase[FD_T, memoryview]):
+    ...
 
 
 class PyPluginUnavailableBackend(PyPlugin[FD_T]):
