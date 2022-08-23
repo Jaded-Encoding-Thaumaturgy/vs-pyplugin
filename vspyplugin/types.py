@@ -17,6 +17,11 @@ _KT = TypeVar('_KT')
 _VT_co = TypeVar('_VT_co', covariant=True)
 
 
+class SupportsIndexing(Protocol[_VT_co]):
+    def __getitem__(self, __k: int) -> _VT_co:
+        ...
+
+
 class SupportsKeysAndGetItem(Protocol[_KT, _VT_co]):
     def keys(self) -> Iterable[_KT]:
         ...
