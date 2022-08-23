@@ -78,8 +78,7 @@ try:
                 ) for plane in range(3)
             ])
 
-        @PyPlugin.ensure_output
-        def invoke(self) -> vs.VideoNode:
+        def _invoke_func(self) -> OutputFunc_T:
             assert self.ref_clip.format
 
             if self.channels_last:
@@ -181,7 +180,7 @@ try:
 
                             return fout
 
-            return self._invoke_process(output_func)
+            return output_func
 
     class PyPluginNumpy(Generic[FD_T], PyPluginNumpyBase[FD_T, NDArray[Any]]):
         ...
