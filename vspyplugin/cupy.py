@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 
 import vapoursynth as vs
 
+from .abstracts import FD_T
 from .backends import PyBackend
-from .base import FD_T, PyPluginUnavailableBackend, PyPlugin
-from .coroutines import frame_eval_async, get_frame, get_frames, wait
-from .types import FilterMode, copy_signature
+from .base import PyPlugin, PyPluginUnavailableBackend
+from .types import OutputFunc_T, copy_signature
 from .utils import get_resolutions
 
 __all__ = [
@@ -184,158 +184,69 @@ try:
 
                 return _stack_whole_frame(frame, idx)
 
-            if self.filter_mode is FilterMode.Async:
-                if self.output_per_plane:
-                    if self.clips:
-                        @frame_eval_async(self.ref_clip)
-                        async def output(n: int) -> vs.VideoFrame:
-                            frames = await get_frames(self.ref_clip, *self.clips, frame_no=n)
-                            fout = frames[0].copy()
+            output_func: OutputFunc_T
 
-                            pre_stacked_clips = {
-                                idx: _stack_frame(frame, idx)
-                                for idx, frame in enumerate(frames)
-                                if not self._input_per_plane[idx]
-                            }
+            if self.output_per_plane:
+                if self.clips:
+                    def output_func(f: tuple[vs.VideoFrame, ...], n: int) -> vs.VideoFrame:
+                        fout = f[0].copy()
 
-                            for p in range(fout.format.num_planes):
-                                inputs_data = [
-                                    self.to_device(frame, idx, p)
-                                    if self._input_per_plane[idx]
-                                    else pre_stacked_clips[idx]
-                                    for idx, frame in enumerate(frames)
-                                ]
+                        pre_stacked_clips = {
+                            idx: _stack_frame(frame, idx)
+                            for idx, frame in enumerate(f)
+                            if not self._input_per_plane[idx]
+                        }
 
-                                self.process(fout, inputs_data, self.dst_stacked_planes[p], p, n)
-
-                            return self.from_device(fout)
-                    else:
-                        if self._input_per_plane[0]:
-                            @frame_eval_async(self.ref_clip)
-                            async def output(n: int) -> vs.VideoFrame:
-                                frame = await get_frame(self.ref_clip, n)
-                                fout = frame.copy()
-
-                                for p in range(fout.format.num_planes):
-                                    self.process(fout, self.to_device(frame, 0, p), self.dst_stacked_planes[p], p, n)
-
-                                return self.from_device(fout)
-                        else:
-                            @frame_eval_async(self.ref_clip)
-                            async def output(n: int) -> vs.VideoFrame:
-                                frame = await get_frame(self.ref_clip, n)
-                                fout = frame.copy()
-
-                                pre_stacked_clip = _stack_frame(frame, 0)
-
-                                for p in range(fout.format.num_planes):
-                                    self.process(fout, pre_stacked_clip, self.dst_stacked_planes[p], p, n)
-
-                                return self.from_device(fout)
-                else:
-                    if self.clips:
-                        async def inner_stack(clip: vs.VideoNode, n: int, idx: int) -> NDArray[Any]:
-                            return _stack_frame(await get_frame(clip, n), idx)
-
-                        @frame_eval_async(self.ref_clip)
-                        async def output(n: int) -> vs.VideoFrame:
-                            frame = await get_frame(self.ref_clip, n)
-                            fout = frame.copy()
-
-                            self.process(fout, await wait(
-                                inner_stack(clip, n, idx) for idx, clip in enumerate(self.clips, 1)
-                            ), self.dst_stacked_arr, None, n)
-
-                            return self.from_device(fout)
-                    else:
-                        @frame_eval_async(self.ref_clip)
-                        async def output(n: int) -> vs.VideoFrame:
-                            frame = await get_frame(self.ref_clip, n)
-                            fout = frame.copy()
-
-                            self.process(fout, _stack_whole_frame(frame, 0), self.dst_stacked_arr, None, n)
-
-                            return self.from_device(fout)
-            else:
-                output_func: Callable[
-                    [vs.VideoFrame, int], vs.VideoFrame
-                ] | Callable[
-                    [list[vs.VideoFrame], int], vs.VideoFrame
-                ]
-
-                if self.output_per_plane:
-                    if self.clips:
-                        def output_func(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-                            fout = f[0].copy()
-
-                            pre_stacked_clips = {
-                                idx: _stack_frame(frame, idx)
+                        for p in range(fout.format.num_planes):
+                            inputs_data = [
+                                self.to_device(frame, idx, p)
+                                if self._input_per_plane[idx]
+                                else pre_stacked_clips[idx]
                                 for idx, frame in enumerate(f)
-                                if not self._input_per_plane[idx]
-                            }
+                            ]
+
+                            self.process(fout, inputs_data, self.dst_stacked_planes[p], p, n)
+
+                        return self.from_device(fout)
+                else:
+                    if self._input_per_plane[0]:
+                        def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                            fout = f.copy()
 
                             for p in range(fout.format.num_planes):
-                                inputs_data = [
-                                    self.to_device(frame, idx, p)
-                                    if self._input_per_plane[idx]
-                                    else pre_stacked_clips[idx]
-                                    for idx, frame in enumerate(f)
-                                ]
-
-                                self.process(fout, inputs_data, self.dst_stacked_planes[p], p, n)
-
-                            return self.from_device(fout)
-                    else:
-                        if self._input_per_plane[0]:
-                            def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-                                fout = f.copy()
-
-                                for p in range(fout.format.num_planes):
-                                    self.process(fout, self.to_device(f, 0, p), self.dst_stacked_planes[p], p, n)
-
-                                return self.from_device(fout)
-                        else:
-                            def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
-                                fout = f.copy()
-
-                                pre_stacked_clip = _stack_frame(f, 0)
-
-                                for p in range(fout.format.num_planes):
-                                    self.process(fout, pre_stacked_clip, self.dst_stacked_planes[p], p, n)
-
-                                return self.from_device(fout)
-                else:
-                    if self.clips:
-                        def output_func(f: list[vs.VideoFrame], n: int) -> vs.VideoFrame:
-                            fout = f[0].copy()
-
-                            self.process(fout, [
-                                _stack_frame(frame, idx)
-                                for idx, frame in enumerate(f, 1)
-                            ], self.dst_stacked_arr, None, n)
+                                self.process(fout, self.to_device(f, 0, p), self.dst_stacked_planes[p], p, n)
 
                             return self.from_device(fout)
                     else:
                         def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
                             fout = f.copy()
 
-                            self.process(fout, _stack_whole_frame(f, 0), self.dst_stacked_arr, None, n)
+                            pre_stacked_clip = _stack_frame(f, 0)
+
+                            for p in range(fout.format.num_planes):
+                                self.process(fout, pre_stacked_clip, self.dst_stacked_planes[p], p, n)
 
                             return self.from_device(fout)
+            else:
+                if self.clips:
+                    def output_func(f: tuple[vs.VideoFrame, ...], n: int) -> vs.VideoFrame:
+                        fout = f[0].copy()
 
-                modify_frame_partial = partial(
-                    vs.core.std.ModifyFrame,
-                    self.ref_clip,
-                    (self.ref_clip, *self.clips),
-                    output_func
-                )
+                        self.process(fout, [
+                            _stack_frame(frame, idx)
+                            for idx, frame in enumerate(f, 1)
+                        ], self.dst_stacked_arr, None, n)
 
-                if self.filter_mode is FilterMode.Serial:
-                    output = modify_frame_partial()
+                        return self.from_device(fout)
                 else:
-                    output = self.ref_clip.std.FrameEval(lambda n: modify_frame_partial())
+                    def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
+                        fout = f.copy()
 
-            return output
+                        self.process(fout, _stack_whole_frame(f, 0), self.dst_stacked_arr, None, n)
+
+                        return self.from_device(fout)
+
+            return self._invoke_process(output_func)
 
     this_backend.set_available(True)
 except BaseException as e:
