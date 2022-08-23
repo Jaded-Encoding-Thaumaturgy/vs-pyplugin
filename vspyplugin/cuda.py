@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar, cast
 
 import vapoursynth as vs
 
+from vspyplugin.cupy import PyPluginCupy
+
 from .abstracts import FD_T
 from .backends import PyBackend
 from .base import PyPluginOptions, PyPluginUnavailableBackend
@@ -332,7 +334,7 @@ try:
                 for name, funcs in kernel_functions.items()
             })
 
-    class PyPluginCuda(PyPluginCudaBase[FD_T, NDArray[Any]]):
+    class PyPluginCuda(PyPluginCupy[FD_T], PyPluginCudaBase[FD_T, NDArray[Any]]):
         ...
 
     this_backend.set_available(True)

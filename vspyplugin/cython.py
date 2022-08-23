@@ -179,7 +179,7 @@ try:
                 ) for name in cython_functions
             })
 
-    class PyPluginCython(PyPluginCythonBase[FD_T, memoryview]):
+    class PyPluginCython(PyPlugin[FD_T], PyPluginCythonBase[FD_T, memoryview]):
         ...
 
     this_backend.set_available(True)
