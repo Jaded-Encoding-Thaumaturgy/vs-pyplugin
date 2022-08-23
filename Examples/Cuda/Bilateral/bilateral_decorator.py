@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from functools import lru_cache
 from math import e, log2
-from typing import Any
 
 import vapoursynth as vs
-from numpy.typing import NDArray
 from stgfunc import set_output, source
 from vspyplugin import PyPluginCuda
 
@@ -33,7 +31,7 @@ def bilateral(
     kernel_kwargs = dict(sigmaS=sigmaS_scaled, sigmaR=sigmaR_scaled, radius=radius)
 
     @BilateralFilter(clip, None, 'bilateral', 16, True, radius=radius, kernel_kwargs=kernel_kwargs)
-    def output(self: BilateralFilter, src: NDArray[Any], dst: NDArray[Any], plane: int) -> None:
+    def output(self: BilateralFilter, src: BilateralFilter.DT, dst: BilateralFilter.DT, plane: int) -> None:
         self.kernel.bilateral[plane](src, dst)
 
     return output
