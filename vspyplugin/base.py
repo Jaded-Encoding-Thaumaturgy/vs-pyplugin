@@ -241,13 +241,13 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
             self.process_SingleSrcIPP = self.process_SingleSrcIPF = func
             self.process_MultiSrcIPP = self.process_MultiSrcIPF = func
         else:
-            def _wrapper_ipf(f, src, dst, n) -> Any:  # type: ignore
+            def _wrapper_ipf(src: Any, dst: Any, f: vs.VideoFrame, n: int) -> None:
                 curr_locals = locals()
-                return func(**{name: curr_locals[name] for name in annotations})
+                func(**{name: curr_locals[name] for name in annotations})
 
-            def _wrapper_ipp(f, src, dst, plane, n) -> Any:  # type: ignore
+            def _wrapper_ipp(src: Any, dst: Any, f: vs.VideoFrame, plane: int, n: int) -> None:
                 curr_locals = locals()
-                return func(**{name: curr_locals[name] for name in annotations})
+                func(**{name: curr_locals[name] for name in annotations})
 
             self.process_SingleSrcIPF = self.process_MultiSrcIPF = _wrapper_ipf
             self.process_SingleSrcIPP = self.process_MultiSrcIPP = _wrapper_ipp
