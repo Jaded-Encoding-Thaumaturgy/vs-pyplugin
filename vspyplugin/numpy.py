@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Callable, Generic, cast
 
 import vapoursynth as vs
 
-from .abstracts import FD_T
+from .abstracts import DT_T, FD_T
 from .backends import PyBackend
-from .base import PyPlugin, PyPluginUnavailableBackend
+from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend
 from .types import OutputFunc_T, copy_signature
 from .utils import get_resolutions
 
 __all__ = [
-    'PyPluginNumpy'
+    'PyPluginNumpyBase', 'PyPluginNumpy'
 ]
 
 this_backend = PyBackend.NUMPY
@@ -30,7 +30,7 @@ try:
 
     _cache_dtypes = dict[int, dtype[Any]]()
 
-    class PyPluginNumpy(PyPlugin[FD_T]):
+    class PyPluginNumpyBase(PyPluginBase[FD_T, DT_T]):
         backend = this_backend
 
         def to_host(self, f: vs.VideoFrame, plane: int) -> NDArray[Any]:
@@ -182,6 +182,9 @@ try:
                             return fout
 
             return self._invoke_process(output_func)
+
+    class PyPluginNumpy(Generic[FD_T], PyPluginNumpyBase[FD_T, NDArray[Any]]):
+        ...
 
     this_backend.set_available(True)
 except BaseException as e:

@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any, Generic, Sequence
 
+from .abstracts import DT_T, FD_T
 from .backends import PyBackend
-from .base import FD_T, PyPlugin, PyPluginUnavailableBackend
+from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend
 from .types import copy_signature
 
 __all__ = [
-    'PyPluginCython'
+    'PyPluginCythonBase', 'PyPluginCython'
 ]
 
 this_backend = PyBackend.CYTHON
@@ -41,7 +42,7 @@ try:
             def __getattribute__(self, __name: str) -> CythonKernelFunction:
                 ...
 
-    class PyPluginCython(PyPlugin[FD_T]):
+    class PyPluginCythonBase(PyPluginBase[FD_T, DT_T]):
         backend = this_backend
 
         cython_kernel: str | tuple[str | Path, str | Sequence[str]]
@@ -177,6 +178,9 @@ try:
                     object.__getattribute__(module, name)
                 ) for name in cython_functions
             })
+
+    class PyPluginCython(Generic[FD_T], PyPluginCythonBase[FD_T, memoryview]):
+        ...
 
     this_backend.set_available(True)
 except BaseException as e:
