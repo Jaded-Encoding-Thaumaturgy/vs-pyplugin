@@ -66,13 +66,7 @@ class PyPluginOptions:
 
 
 class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
-    if TYPE_CHECKING:
-        __slots__ = (
-            'backend', 'filter_data', 'clips', 'ref_clip', 'fd',
-            '_input_per_plane', 'out_format', 'output_per_plane',
-            'is_single_plane'
-        )
-    else:
+    if not TYPE_CHECKING:
         __slots__ = (
             'backend', 'filter_data', 'clips', 'ref_clip', 'fd',
             '_input_per_plane'
