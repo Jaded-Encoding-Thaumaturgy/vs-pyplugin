@@ -5,10 +5,9 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 import vapoursynth as vs
 
-from .abstracts import FD_T
 from .backends import PyBackend
 from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend
-from .types import OutputFunc_T, copy_signature
+from .types import FD_T, OutputFunc_T, copy_signature
 from .utils import get_resolutions
 
 __all__ = [

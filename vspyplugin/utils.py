@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import vapoursynth as vs
 
-from typing import Any, TypeVar, Callable
+from .types import F
 
 __all__ = [
     'get_resolutions',
@@ -10,8 +10,6 @@ __all__ = [
     'get_c_dtype_long',
     'erase_module'
 ]
-
-F = TypeVar('F', bound=Callable[..., Any])
 
 
 def get_resolutions(clip: vs.VideoNode | vs.VideoFrame, strip: bool = False) -> tuple[tuple[int, int, int], ...]:

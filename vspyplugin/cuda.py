@@ -8,12 +8,9 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar, cast
 
 import vapoursynth as vs
 
-from vspyplugin.cupy import PyPluginCupy
-
-from .abstracts import FD_T
 from .backends import PyBackend
 from .base import PyPluginOptions, PyPluginUnavailableBackend
-from .types import FilterMode
+from .types import FD_T, FilterMode
 from .utils import get_c_dtype_long, get_resolutions
 
 __all__ = [
@@ -63,7 +60,7 @@ try:
     from cupy import RawKernel
     from numpy.typing import NDArray
 
-    from .cupy import PyPluginCupyBase
+    from .cupy import PyPluginCupy, PyPluginCupyBase
     from .numpy import NDT_T
 
     class CudaKernelFunction(Generic[NDT_T]):

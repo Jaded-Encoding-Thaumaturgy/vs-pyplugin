@@ -2,30 +2,22 @@ from __future__ import annotations
 
 from enum import IntEnum
 from functools import partial, wraps
-from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Mapping, TypeAlias, TypeVar, Union, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Mapping, TypeAlias, Union, cast, overload
 
 import vapoursynth as vs
 
-from .types import SupportsIndexing, SupportsKeysAndGetItem
+from .types import DT_T, F_VD, FD_T, PassthroughC, SupportsIndexing
 
 __all__ = [
     'ProcessMode',
-    'PyPluginBackendBase',
-    'FD_T', 'DT_T'
+    'PyPluginBackendBase'
 ]
-
-F = TypeVar('F')
-FVD = TypeVar('FVD', bound=Callable[..., vs.VideoNode])
-FD_T = TypeVar('FD_T', bound=Any | SupportsKeysAndGetItem[str, object] | None)
-DT_T = TypeVar('DT_T')
 
 if TYPE_CHECKING:
     from .base import PyPlugin as CLS_T
 else:
     class CLS_T(Generic[FD_T]):
         ...
-
-PassthroughC = Callable[[F], F]
 
 
 class ProcessModeBase:
@@ -172,9 +164,9 @@ class PyPluginBackendBase(Generic[DT_T], metaclass=PyPluginBackendMeta):
         return _wrapper
 
     @staticmethod
-    def ensure_output(func: FVD) -> FVD:
+    def ensure_output(func: F_VD) -> F_VD:
         @wraps(func)
         def _wrapper(self: CLS_T[FD_T], *args: Any, **kwargs: Any) -> Any:
             return self.options.ensure_output(self, func(self, *args, **kwargs))
 
-        return cast(FVD, _wrapper)
+        return cast(F_VD, _wrapper)

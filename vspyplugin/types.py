@@ -7,7 +7,8 @@ import vapoursynth as vs
 
 __all__ = [
     'SupportsKeysAndGetItem',
-    'F',
+    'F', 'F_VD',
+    'FD_T', 'DT_T',
     'copy_signature',
     'FilterMode',
     'OutputFunc_T'
@@ -15,6 +16,10 @@ __all__ = [
 
 _KT = TypeVar('_KT')
 _VT_co = TypeVar('_VT_co', covariant=True)
+
+
+F = TypeVar('F', bound=Callable[..., Any])
+F_VD = TypeVar('F_VD', bound=Callable[..., vs.VideoNode])
 
 
 class SupportsIndexing(Protocol[_VT_co]):
@@ -28,9 +33,6 @@ class SupportsKeysAndGetItem(Protocol[_KT, _VT_co]):
 
     def __getitem__(self, __k: _KT) -> _VT_co:
         ...
-
-
-F = TypeVar('F', bound=Callable[..., Any])
 
 
 class copy_signature(Generic[F]):
@@ -55,3 +57,8 @@ class FilterMode(IntEnum):
 OutputFunc_T = Union[
     Callable[[vs.VideoFrame, int], vs.VideoFrame], Callable[[tuple[vs.VideoFrame, ...], int], vs.VideoFrame]
 ]
+
+FD_T = TypeVar('FD_T', bound=Any | SupportsKeysAndGetItem[str, object] | None)
+DT_T = TypeVar('DT_T')
+
+PassthroughC = Callable[[F], F]
