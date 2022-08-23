@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Mapping, Type
 
 import vapoursynth as vs
 
-from .types import SupportsKeysAndGetItem
+from .types import SupportsIndexing, SupportsKeysAndGetItem
 
 __all__ = [
     'ProcessMode',
@@ -28,11 +28,13 @@ PassthroughC = Callable[[F], F]
 
 
 class ProcessModeBase:
-    Any_T = Callable[[Any, DT_T | list[DT_T], DT_T | list[DT_T], vs.VideoFrame, int | None, int], None]
+    Any_T = Callable[
+        [Any, DT_T | SupportsIndexing[DT_T], DT_T | SupportsIndexing[DT_T], vs.VideoFrame, int | None, int], None
+    ]
     SingleSrcIPP_T = Callable[[Any, DT_T, DT_T, vs.VideoFrame, int, int], None]
-    MultiSrcIPP_T = Callable[[Any, list[DT_T], DT_T, vs.VideoFrame, int, int], None]
-    SingleSrcIPF_T = Callable[[Any, DT_T, list[DT_T], vs.VideoFrame, int], None]
-    MultiSrcIPF_T = Callable[[Any, list[DT_T], list[DT_T], vs.VideoFrame, int], None]
+    MultiSrcIPP_T = Callable[[Any, SupportsIndexing[DT_T], DT_T, vs.VideoFrame, int, int], None]
+    SingleSrcIPF_T = Callable[[Any, DT_T, SupportsIndexing[DT_T], vs.VideoFrame, int], None]
+    MultiSrcIPF_T = Callable[[Any, SupportsIndexing[DT_T], SupportsIndexing[DT_T], vs.VideoFrame, int], None]
 
 
 class ProcessMode(ProcessModeBase, IntEnum):
@@ -93,8 +95,8 @@ class PyPluginBackendMeta(type):
 
 class PyPluginBackendBase(Generic[DT_T], metaclass=PyPluginBackendMeta):
     DT: TypeAlias = DT_T  # type: ignore
-    DTL: TypeAlias = list[DT_T]  # type: ignore
-    DTA: TypeAlias = DT_T | list[DT_T]  # type: ignore
+    DTL: TypeAlias = SupportsIndexing[DT_T]  # type: ignore
+    DTA: TypeAlias = DT_T | SupportsIndexing[DT_T]  # type: ignore
 
     process_SingleSrcIPP: ProcessMode.SingleSrcIPP_T[DT_T] | None
     process_MultiSrcIPP: ProcessMode.MultiSrcIPP_T[DT_T] | None
