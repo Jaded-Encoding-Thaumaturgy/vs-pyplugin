@@ -8,11 +8,11 @@ __all__ = [
 
 
 class PyBackend(IntEnum):
+    NONE = -1
     NUMPY = 0
     CUPY = 1
     CUDA = 2
     CYTHON = 3
-    NUMBA = 4
 
     def set_available(self, is_available: bool, e: BaseException | None = None) -> None:
         if not is_available:

@@ -76,7 +76,7 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
             '_input_per_plane'
         )
 
-    backend: PyBackend
+    backend: PyBackend = PyBackend.NONE
     filter_data: Type[FD_T]
     filter_mode: FilterMode
 
