@@ -249,8 +249,8 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
                 curr_locals = locals()
                 return func(**{name: curr_locals[name] for name in annotations})
 
-            self.process_SingleSrcIPF = self.process_MultiSrcIPF = _wrapper_ipf  # type: ignore
-            self.process_SingleSrcIPP = self.process_MultiSrcIPP = _wrapper_ipp  # type: ignore
+            self.process_SingleSrcIPF = self.process_MultiSrcIPF = _wrapper_ipf
+            self.process_SingleSrcIPP = self.process_MultiSrcIPP = _wrapper_ipp
 
         return self.invoke()
 
@@ -284,7 +284,7 @@ class PyPlugin(PyPluginBase[FD_T, memoryview]):
                             for idx, frame in enumerate(f)
                         ]
 
-                        func_MultiSrcIPP(self, inputs_data, fout[p], fout, p, n)  # type: ignore
+                        func_MultiSrcIPP(inputs_data, fout[p], fout, p, n)  # type: ignore
 
                     return fout
             else:
@@ -296,7 +296,7 @@ class PyPlugin(PyPluginBase[FD_T, memoryview]):
                         fout = f.copy()
 
                         for p in range(fout.format.num_planes):
-                            func_SingleSrcIPP(self, f[p], fout[p], fout, p, n)
+                            func_SingleSrcIPP(f[p], fout[p], fout, p, n)
 
                         return fout
                 else:
@@ -306,7 +306,7 @@ class PyPlugin(PyPluginBase[FD_T, memoryview]):
                         pre_stacked_clip = _stack_frame(f, 0)
 
                         for p in range(fout.format.num_planes):
-                            func_SingleSrcIPP(self, pre_stacked_clip, fout[p], fout, p, n)  # type: ignore
+                            func_SingleSrcIPP(pre_stacked_clip, fout[p], fout, p, n)  # type: ignore
 
                         return fout
         else:
@@ -319,7 +319,7 @@ class PyPlugin(PyPluginBase[FD_T, memoryview]):
 
                     src_arrays = [_stack_frame(frame, idx) for idx, frame in enumerate(f)]
 
-                    func_MultiSrcIPF(self, src_arrays, fout, fout, n)  # type: ignore
+                    func_MultiSrcIPF(src_arrays, fout, fout, n)  # type: ignore
 
                     return fout
             else:
@@ -331,7 +331,7 @@ class PyPlugin(PyPluginBase[FD_T, memoryview]):
                         def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
                             fout = f.copy()
 
-                            func_SingleSrcIPP(self, f[0], fout[0], fout, 0, n)
+                            func_SingleSrcIPP(f[0], fout[0], fout, 0, n)
 
                             return fout
                     else:
@@ -341,7 +341,7 @@ class PyPlugin(PyPluginBase[FD_T, memoryview]):
                         def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
                             fout = f.copy()
 
-                            func_SingleSrcIPF(self, f[0], fout, fout, n)
+                            func_SingleSrcIPF(f[0], fout, fout, n)
 
                             return fout
                 else:
@@ -351,7 +351,7 @@ class PyPlugin(PyPluginBase[FD_T, memoryview]):
                     def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
                         fout = f.copy()
 
-                        func_SingleSrcIPF(self, f, fout, fout, n)  # type: ignore
+                        func_SingleSrcIPF(f, fout, fout, n)  # type: ignore
 
                         return fout
 
