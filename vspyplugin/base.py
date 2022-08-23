@@ -15,6 +15,7 @@ from .types import FilterMode, copy_signature, OutputFunc_T
 
 __all__ = [
     'PyPluginBase', 'PyPlugin',
+    'PyPluginOptions',
     'PyPluginUnavailableBackend'
 ]
 
