@@ -4,9 +4,7 @@ from dataclasses import dataclass
 
 import vapoursynth as vs
 from stgfunc import set_output, source
-from vspyplugin import PyPluginCython
-from vspyplugin.base import PyPluginOptions
-from vspyplugin.types import FilterMode
+from vspyplugin import FilterMode, ProcessMode, PyPluginCython, PyPluginOptions
 
 core = vs.core
 
@@ -24,7 +22,8 @@ class SigmaFilter(PyPluginCython[SigmaFilterData]):
     output_per_plane = True
     filter_mode = FilterMode.Async
 
-    def process(self, f: vs.VideoFrame, src: memoryview, dst: memoryview, plane: int | None, n: int) -> None:
+    @PyPluginCython.process(ProcessMode.SingleSrcIPP)
+    def _(self, src: SigmaFilter.DT, dst: SigmaFilter.DT, f: vs.VideoFrame, plane: int, n: int) -> None:
         self.kernel.sigma_filter(src, dst, self.fd.radius, self.fd.thr)
 
 
