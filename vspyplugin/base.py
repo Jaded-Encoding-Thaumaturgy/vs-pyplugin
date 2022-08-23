@@ -161,9 +161,6 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
 
         self._input_per_plane = inputs_per_plane
 
-        if ref_clip.format.num_planes == 1:
-            self.output_per_plane = True
-
         self.is_single_plane = [
             bool(clip.format and clip.format.num_planes == 1)
             for clip in (self.ref_clip, *self.clips)
