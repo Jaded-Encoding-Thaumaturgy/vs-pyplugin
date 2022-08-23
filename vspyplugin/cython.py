@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 from .abstracts import DT_T, FD_T
 from .backends import PyBackend
@@ -179,7 +179,7 @@ try:
                 ) for name in cython_functions
             })
 
-    class PyPluginCython(Generic[FD_T], PyPluginCythonBase[FD_T, memoryview]):
+    class PyPluginCython(PyPluginCythonBase[FD_T, memoryview]):
         ...
 
     this_backend.set_available(True)

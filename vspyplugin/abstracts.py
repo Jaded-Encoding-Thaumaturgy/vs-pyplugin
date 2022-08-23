@@ -22,7 +22,8 @@ DT_T = TypeVar('DT_T')
 if TYPE_CHECKING:
     from .base import PyPlugin as CLS_T
 else:
-    CLS_T = TypeVar('CLS_T', bound=Generic)
+    class CLS_T(Generic[FD_T]):
+        ...
 
 PassthroughC = Callable[[F], F]
 
