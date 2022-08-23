@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar, cast
+from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar, Union, cast
 
 import vapoursynth as vs
 
@@ -47,4 +47,6 @@ class FilterMode(IntEnum):
     """Async and parallelized requests"""
 
 
-OutputFunc_T = Callable[[vs.VideoFrame, int], vs.VideoFrame] | Callable[[tuple[vs.VideoFrame, ...], int], vs.VideoFrame]
+OutputFunc_T = Union[
+    Callable[[vs.VideoFrame, int], vs.VideoFrame], Callable[[tuple[vs.VideoFrame, ...], int], vs.VideoFrame]
+]
