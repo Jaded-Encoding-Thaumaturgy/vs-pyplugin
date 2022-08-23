@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generic, cast
 
 import vapoursynth as vs
 
-from .abstracts import DT_T, FD_T
+from .abstracts import FD_T
 from .backends import PyBackend
 from .base import PyPlugin, PyPluginUnavailableBackend
 from .types import OutputFunc_T, copy_signature
@@ -25,14 +25,14 @@ try:
     from cupy import cuda
     from numpy.typing import NDArray
 
-    from .numpy import PyPluginNumpy, PyPluginNumpyBase
+    from .numpy import NDT_T, PyPluginNumpy, PyPluginNumpyBase
 
     if TYPE_CHECKING:
-        concatenate: Callable[..., NDArray[Any]]
+        concatenate: Callable[..., NDT_T]
     else:
         from cupy._core import concatenate_method as concatenate
 
-    class PyPluginCupyBase(PyPluginNumpyBase[FD_T, DT_T]):
+    class PyPluginCupyBase(PyPluginNumpyBase[FD_T, NDT_T]):
         backend = this_backend
 
         cuda_num_streams: int = 0
@@ -57,7 +57,7 @@ try:
 
             return stop_events
 
-        def to_device(self, f: vs.VideoFrame, idx: int, plane: int) -> NDArray[Any]:
+        def to_device(self, f: vs.VideoFrame, idx: int, plane: int) -> NDT_T:
             self._memcpy_func(
                 int(self.src_arrays[plane][idx].data),
                 cast(int, f.get_read_ptr(plane).value),
@@ -92,7 +92,7 @@ try:
             return dst
 
         @staticmethod
-        def alloc_plane_arrays(clip: vs.VideoNode | vs.VideoFrame, fill: int | float | None = 0) -> list[NDArray[Any]]:
+        def alloc_plane_arrays(clip: vs.VideoNode | vs.VideoFrame, fill: int | float | None = 0) -> list[NDT_T]:
             assert clip.format
 
             function = cp.empty if fill is None else cp.zeros if fill == 0 else partial(cp.full, fill_value=fill)
@@ -102,7 +102,7 @@ try:
                 for _, width, height in get_resolutions(clip, True)
             ]
 
-        def _get_data_len(self, arr: NDArray[Any]) -> int:
+        def _get_data_len(self, arr: NDT_T) -> int:
             return round(super()._get_data_len(arr) / max(1, self.cuda_num_streams))
 
         @copy_signature(PyPlugin.__init__)
@@ -162,22 +162,22 @@ try:
             self._memcpy_func = self._memcpy_async if self.cuda_num_streams else runtime.memcpy
 
             if self.ref_clip.format.num_planes == 1:
-                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
+                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDT_T:
                     return self.to_device(frame, idx, 0)
             elif self.channels_last:
                 stack_slice = (slice(None), slice(None), None)
 
-                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
+                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDT_T:
                     return concatenate([
                         self.to_device(frame, idx, plane)[stack_slice] for plane in {0, 1, 2}
                     ], axis=2)
             else:
-                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
+                def _stack_whole_frame(frame: vs.VideoFrame, idx: int) -> NDT_T:
                     return concatenate([
                         self.to_device(frame, idx, plane) for plane in {0, 1, 2}
                     ], axis=0)
 
-            def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
+            def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDT_T:
                 if self.is_single_plane[idx]:
                     return self.to_device(frame, idx, 0)
 
