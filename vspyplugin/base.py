@@ -58,9 +58,13 @@ class PyPluginOptions:
 
     def ensure_output(self, plugin: PyPlugin[FD_T], clip: vs.VideoNode) -> vs.VideoNode:
         assert plugin.ref_clip.format
+        assert (fmt := clip.format)
 
         if plugin.out_format.id != plugin.ref_clip.format.id:
-            return clip.resize.Bicubic(format=plugin.out_format.id, dither_type='none')
+            clip = clip.resize.Bicubic(format=plugin.out_format.id, dither_type='none')
+
+        if self.shift_chroma and fmt.num_planes == 3:
+            clip = clip.std.Expr(['', 'x 0.5 -'])
 
         return clip
 
