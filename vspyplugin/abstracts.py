@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from functools import wraps
+from functools import partial, wraps
 from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Mapping, TypeAlias, TypeVar, Union, cast, overload
 
 import vapoursynth as vs
@@ -65,6 +65,9 @@ class PyPluginBackendOverloadedDict(dict[str, Any]):
                     mode_key = self.get_key(pmode)
 
                     if self.get(mode_key, None) is None:
+                        if mode_key.endswith('IPF'):
+                            value = partial(value, plane=None)
+
                         super().__setitem__(mode_key, value)
 
                 return
