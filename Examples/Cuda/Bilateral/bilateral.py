@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any
 
 import vapoursynth as vs
-from numpy.typing import NDArray
 from stgfunc import set_output, source
-from vspyplugin import PyPluginCuda
+from vspyplugin import ProcessMode, PyPluginCuda
 from vspyplugin.types import FilterMode
 
 core = vs.core
@@ -22,7 +20,8 @@ class BilateralFilter(PyPluginCuda[None]):
     kernel_size = 16
     use_shared_memory = True
 
-    def process(self, f: vs.VideoFrame, src: NDArray[Any], dst: NDArray[Any], plane: int | None, n: int) -> None:
+    @PyPluginCuda.process(ProcessMode.SingleSrcIPP)
+    def _(self, src: BilateralFilter.DT, dst: BilateralFilter.DT, f: vs.VideoFrame, plane: int, n: int) -> None:
         self.kernel.bilateral[plane](src, dst)
 
     @lru_cache
