@@ -30,12 +30,19 @@ PassthroughC = Callable[[F], F]
 
 class ProcessModeBase:
     Any_T = Callable[
+        [DT_T | SupportsIndexing[DT_T], DT_T | SupportsIndexing[DT_T], vs.VideoFrame, int | None, int], None
+    ]
+    Any_ST = Callable[
         [Any, DT_T | SupportsIndexing[DT_T], DT_T | SupportsIndexing[DT_T], vs.VideoFrame, int | None, int], None
     ]
-    SingleSrcIPP_T = Callable[[Any, DT_T, DT_T, vs.VideoFrame, int, int], None]
-    MultiSrcIPP_T = Callable[[Any, SupportsIndexing[DT_T], DT_T, vs.VideoFrame, int, int], None]
-    SingleSrcIPF_T = Callable[[Any, DT_T, SupportsIndexing[DT_T], vs.VideoFrame, int], None]
-    MultiSrcIPF_T = Callable[[Any, SupportsIndexing[DT_T], SupportsIndexing[DT_T], vs.VideoFrame, int], None]
+    SingleSrcIPP_T = Callable[[DT_T, DT_T, vs.VideoFrame, int, int], None]
+    SingleSrcIPP_ST = Callable[[Any, DT_T, DT_T, vs.VideoFrame, int, int], None]
+    MultiSrcIPP_T = Callable[[SupportsIndexing[DT_T], DT_T, vs.VideoFrame, int, int], None]
+    MultiSrcIPP_ST = Callable[[Any, SupportsIndexing[DT_T], DT_T, vs.VideoFrame, int, int], None]
+    SingleSrcIPF_T = Callable[[DT_T, SupportsIndexing[DT_T], vs.VideoFrame, int], None]
+    SingleSrcIPF_ST = Callable[[Any, DT_T, SupportsIndexing[DT_T], vs.VideoFrame, int], None]
+    MultiSrcIPF_T = Callable[[SupportsIndexing[DT_T], SupportsIndexing[DT_T], vs.VideoFrame, int], None]
+    MultiSrcIPF_ST = Callable[[Any, SupportsIndexing[DT_T], SupportsIndexing[DT_T], vs.VideoFrame, int], None]
 
 
 class ProcessMode(ProcessModeBase, IntEnum):
@@ -46,10 +53,16 @@ class ProcessMode(ProcessModeBase, IntEnum):
     MultiSrcIPF = 3
 
 
-ALL_PMODES = Union[
+ALL_PMODES_T = Union[
     ProcessMode.Any_T[DT_T],
     ProcessMode.SingleSrcIPP_T[DT_T], ProcessMode.MultiSrcIPP_T[DT_T],
     ProcessMode.SingleSrcIPF_T[DT_T], ProcessMode.MultiSrcIPF_T[DT_T]
+]
+
+ALL_PMODES_ST = Union[
+    ProcessMode.Any_ST[DT_T],
+    ProcessMode.SingleSrcIPP_ST[DT_T], ProcessMode.MultiSrcIPP_ST[DT_T],
+    ProcessMode.SingleSrcIPF_ST[DT_T], ProcessMode.MultiSrcIPF_ST[DT_T]
 ]
 
 
@@ -111,37 +124,37 @@ class PyPluginBackendBase(Generic[DT_T], metaclass=PyPluginBackendMeta):
 
     @overload
     @staticmethod
-    def process(mode: Literal[ProcessMode.SingleSrcIPP], /) -> PassthroughC[ProcessMode.SingleSrcIPP_T[DT_T]]:
+    def process(mode: Literal[ProcessMode.SingleSrcIPP], /) -> PassthroughC[ProcessMode.SingleSrcIPP_ST[DT_T]]:
         ...
 
     @overload
     @staticmethod
-    def process(mode: Literal[ProcessMode.MultiSrcIPP], /) -> PassthroughC[ProcessMode.MultiSrcIPP_T[DT_T]]:
+    def process(mode: Literal[ProcessMode.MultiSrcIPP], /) -> PassthroughC[ProcessMode.MultiSrcIPP_ST[DT_T]]:
         ...
 
     @overload
     @staticmethod
-    def process(mode: Literal[ProcessMode.SingleSrcIPF], /) -> PassthroughC[ProcessMode.SingleSrcIPF_T[DT_T]]:
+    def process(mode: Literal[ProcessMode.SingleSrcIPF], /) -> PassthroughC[ProcessMode.SingleSrcIPF_ST[DT_T]]:
         ...
 
     @overload
     @staticmethod
-    def process(mode: Literal[ProcessMode.MultiSrcIPF], /) -> PassthroughC[ProcessMode.MultiSrcIPF_T[DT_T]]:
+    def process(mode: Literal[ProcessMode.MultiSrcIPF], /) -> PassthroughC[ProcessMode.MultiSrcIPF_ST[DT_T]]:
         ...
 
     @overload
     @staticmethod
-    def process(func: ProcessMode.Any_T[DT_T], /) -> ProcessMode.Any_T[DT_T]:
+    def process(func: ProcessMode.Any_ST[DT_T], /) -> ProcessMode.Any_ST[DT_T]:
         ...
 
     @overload
     @staticmethod
-    def process(func: None, /) -> PassthroughC[PassthroughC[ProcessMode.Any_T[DT_T]]]:
+    def process(func: None, /) -> PassthroughC[PassthroughC[ProcessMode.Any_ST[DT_T]]]:
         ...
 
     @staticmethod  # type: ignore
-    def process(mode_or_func: ProcessMode | ALL_PMODES[DT_T] | None = None, /) -> (
-        PassthroughC[ALL_PMODES[DT_T]] | ProcessMode.Any_T[DT_T]
+    def process(mode_or_func: ProcessMode | ALL_PMODES_ST[DT_T] | None = None, /) -> (
+        PassthroughC[ALL_PMODES_ST[DT_T]] | ProcessMode.Any_ST[DT_T]
     ):
         if mode_or_func is None:
             return PyPluginBackendBase.process  # type: ignore
