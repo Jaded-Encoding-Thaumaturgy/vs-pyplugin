@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, Generic, cast
+from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar, cast
 
 import vapoursynth as vs
 
-from .abstracts import DT_T, FD_T
+from .abstracts import FD_T
 from .backends import PyBackend
 from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend
 from .types import OutputFunc_T, copy_signature
 from .utils import get_resolutions
 
 __all__ = [
-    'PyPluginNumpyBase', 'PyPluginNumpy'
+    'PyPluginNumpyBase', 'PyPluginNumpy',
+    'NDT_T'
 ]
 
 this_backend = PyBackend.NUMPY
@@ -23,17 +24,19 @@ try:
     from numpy.core._multiarray_umath import copyto as npcopyto
     from numpy.typing import NDArray
 
+    NDT_T = TypeVar('NDT_T', bound=NDArray[Any])
+
     if TYPE_CHECKING:
-        concatenate: Callable[..., NDArray[Any]]
+        concatenate: Callable[..., NDT_T]
     else:
         from numpy.core.numeric import concatenate
 
     _cache_dtypes = dict[int, dtype[Any]]()
 
-    class PyPluginNumpyBase(PyPluginBase[FD_T, DT_T]):
+    class PyPluginNumpyBase(PyPluginBase[FD_T, NDT_T]):
         backend = this_backend
 
-        def to_host(self, f: vs.VideoFrame, plane: int) -> NDArray[Any]:
+        def to_host(self, f: vs.VideoFrame, plane: int) -> NDT_T:
             p = f[plane]
             return np.ndarray(p.shape, self.get_dtype(f), p)  # type: ignore
 
@@ -52,7 +55,7 @@ try:
             return _cache_dtypes[fmt.id]
 
         @staticmethod
-        def alloc_plane_arrays(clip: vs.VideoNode | vs.VideoFrame, fill: int | float | None = 0) -> list[NDArray[Any]]:
+        def alloc_plane_arrays(clip: vs.VideoNode | vs.VideoFrame, fill: int | float | None = 0) -> list[NDT_T]:
             assert clip.format
 
             function = np.empty if fill is None else np.zeros if fill == 0 else partial(np.full, fill_value=fill)
@@ -62,7 +65,7 @@ try:
                 for _, width, height in get_resolutions(clip, True)
             ]
 
-        def _get_data_len(self, arr: NDArray[Any]) -> int:
+        def _get_data_len(self, arr: NDT_T) -> int:
             return arr.shape[0] * arr.shape[1] * arr.dtype.itemsize
 
         @copy_signature(PyPlugin.__init__)
@@ -84,17 +87,17 @@ try:
             if self.channels_last:
                 stack_slice = (slice(None), slice(None), None)
 
-                def _stack_whole_frame(frame: vs.VideoFrame) -> NDArray[Any]:
+                def _stack_whole_frame(frame: vs.VideoFrame) -> NDT_T:
                     return concatenate([
                         self.to_host(frame, plane)[stack_slice] for plane in {0, 1, 2}
                     ], axis=2)
             else:
-                def _stack_whole_frame(frame: vs.VideoFrame) -> NDArray[Any]:
+                def _stack_whole_frame(frame: vs.VideoFrame) -> NDT_T:
                     return concatenate([
                         self.to_host(frame, plane) for plane in {0, 1, 2}
                     ], axis=0)
 
-            def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDArray[Any]:
+            def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDT_T:
                 if self.is_single_plane[idx]:
                     return self.to_host(frame, 0)
 
