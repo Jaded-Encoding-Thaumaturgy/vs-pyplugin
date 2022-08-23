@@ -1,25 +1,14 @@
 from __future__ import annotations
 
 from math import ceil
-from typing import Any, TypeVar
 
 import vapoursynth as vs
 from numba import jit, prange  # type: ignore
-from numpy.typing import NDArray
 from stgfunc import set_output, source
-from vspyplugin import PyPluginNumpy
+from vspyplugin import PyPluginNumpy, erase_module
 from vsutil import scale_value
 
 core = vs.core
-
-F = TypeVar('F')
-
-
-def erase_module(func: F) -> F:
-    if hasattr(func, '__module__') and func.__module__ == '__vapoursynth__':
-        func.__module__ = None  # type: ignore
-
-    return func
 
 
 @jit("int32(int32, int32)", nopython=True, nogil=True)  # type: ignore
@@ -34,7 +23,7 @@ def clamp(val: int, high: int) -> int:
 )  # type: ignore
 @erase_module
 def sigma_filter_numba(
-    src: NDArray[Any], dst: NDArray[Any], radius: int, thr: float, height: int, width: int
+    src: PyPluginNumpy.DT, dst: PyPluginNumpy.DT, radius: int, thr: float, height: int, width: int
 ) -> None:
     for y in prange(height):
         for x in prange(width):
@@ -61,7 +50,7 @@ def sigma_filter(clip: vs.VideoNode, radius: int = 3, thr: float = 0.01) -> vs.V
     thr = scale_value(thr, 32, clip.format.bits_per_sample)
 
     @PyPluginNumpy(clip)
-    def output(src: NDArray[Any], dst: NDArray[Any]) -> None:
+    def output(src: PyPluginNumpy.DT, dst: PyPluginNumpy.DT) -> None:
         sigma_filter_numba(src, dst, radius, thr, height, width)
 
     return output
