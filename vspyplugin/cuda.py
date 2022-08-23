@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar, cast
 
 import vapoursynth as vs
 
-from .abstracts import DT_T, FD_T
+from .abstracts import FD_T
 from .backends import PyBackend
 from .base import PyPluginOptions, PyPluginUnavailableBackend
 from .types import FilterMode
@@ -61,20 +61,21 @@ try:
     from cupy import RawKernel
     from numpy.typing import NDArray
 
+    from .numpy import NDT_T
     from .cupy import PyPluginCupyBase
 
-    class CudaKernelFunction(Generic[DT_T]):
+    class CudaKernelFunction(Generic[NDT_T]):
         def __call__(
-            self, src: DT_T, dst: DT_T, *args: Any,
+            self, src: NDT_T, dst: NDT_T, *args: Any,
             kernel_size: tuple[int, ...] = ..., block_size: tuple[int, ...] = ..., shared_mem: int = ...
         ) -> Any:
             ...
 
-    class CudaKernelFunctionPlanes(CudaKernelFunction[DT_T]):
+    class CudaKernelFunctionPlanes(CudaKernelFunction[NDT_T]):
         __slots__ = ('function', 'planes_function')
 
         def __init__(
-            self, function: CudaKernelFunction[DT_T], planes_functions: list[CudaKernelFunction[DT_T]] | None = None
+            self, function: CudaKernelFunction[NDT_T], planes_functions: list[CudaKernelFunction[NDT_T]] | None = None
         ) -> None:
             self.function = function
             if planes_functions is None:
@@ -88,22 +89,22 @@ try:
             def __call__(self, *args: Any, **kwargs: Any) -> Any:
                 return self.function(*args, **kwargs)
 
-        def __getitem__(self, plane: int | None) -> CudaKernelFunction[DT_T]:
+        def __getitem__(self, plane: int | None) -> CudaKernelFunction[NDT_T]:
             if plane is None:
                 return self.function
 
             return self.planes_functions[plane]
 
-    class CudaKernelFunctions(Generic[DT_T]):
-        def __init__(self, **kwargs: CudaKernelFunctionPlanes[DT_T]) -> None:
+    class CudaKernelFunctions(Generic[NDT_T]):
+        def __init__(self, **kwargs: CudaKernelFunctionPlanes[NDT_T]) -> None:
             for key, func in kwargs.items():
                 setattr(self, key, func)
 
         if TYPE_CHECKING:
-            def __getattribute__(self, __name: str) -> CudaKernelFunctionPlanes[DT_T]:
+            def __getattribute__(self, __name: str) -> CudaKernelFunctionPlanes[NDT_T]:
                 ...
 
-    class PyPluginCudaBase(PyPluginCupyBase[FD_T, DT_T]):
+    class PyPluginCudaBase(PyPluginCupyBase[FD_T, NDT_T]):
         backend = this_backend
 
         cuda_kernel: str | tuple[str | Path, str | Sequence[str]]
@@ -114,7 +115,7 @@ try:
 
         options: PyPluginCudaOptions = PyPluginCudaOptions()
 
-        kernel: CudaKernelFunctions[DT_T]
+        kernel: CudaKernelFunctions[NDT_T]
 
         @lru_cache
         def get_kernel_size(self, plane: int, func_name: str, width: int, height: int) -> tuple[int, ...]:
@@ -253,7 +254,7 @@ try:
                 def_kernel_size: tuple[int, ...],
                 def_block_size: tuple[int, ...],
                 def_shared_mem: int, function: Any
-            ) -> CudaKernelFunction[DT_T]:
+            ) -> CudaKernelFunction[NDT_T]:
                 def _inner_function(
                     *args: Any,
                     kernel_size: tuple[int, ...] = def_kernel_size,
@@ -262,7 +263,7 @@ try:
                 ) -> Any:
                     return function(kernel_size, block_size, args, shared_mem=shared_mem)
 
-                return cast(CudaKernelFunction[DT_T], _inner_function)
+                return cast(CudaKernelFunction[NDT_T], _inner_function)
 
             raw_kernel_kwargs = dict(
                 options=('-Xptxas', '-O3', *self.options.compile_flags.to_tuple()),
@@ -272,9 +273,9 @@ try:
                 jitify=self.options.jitify
             )
 
-            _cache_kernel_funcs = dict[tuple[int, str], CudaKernelFunction[DT_T]]()
+            _cache_kernel_funcs = dict[tuple[int, str], CudaKernelFunction[NDT_T]]()
 
-            def _get_kernel_func(name: str, plane: int, width: int, height: int) -> CudaKernelFunction[DT_T]:
+            def _get_kernel_func(name: str, plane: int, width: int, height: int) -> CudaKernelFunction[NDT_T]:
                 assert self.ref_clip.format and cuda_kernel_code and kernel_kwargs is not None
 
                 kernel_args = self.get_kernel_args(plane, name, width, height, **kernel_kwargs)
@@ -331,7 +332,7 @@ try:
                 for name, funcs in kernel_functions.items()
             })
 
-    class PyPluginCuda(Generic[FD_T], PyPluginCudaBase[FD_T, NDArray[Any]]):
+    class PyPluginCuda(PyPluginCudaBase[FD_T, NDArray[Any]]):
         ...
 
     this_backend.set_available(True)

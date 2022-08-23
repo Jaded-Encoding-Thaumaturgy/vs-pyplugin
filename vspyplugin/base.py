@@ -255,7 +255,7 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
         return self.invoke()
 
 
-class PyPlugin(Generic[FD_T], PyPluginBase[FD_T, memoryview]):
+class PyPlugin(PyPluginBase[FD_T, memoryview]):
     def _invoke_func(self) -> OutputFunc_T:
         assert self.ref_clip.format
 

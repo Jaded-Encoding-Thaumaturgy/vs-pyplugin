@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, Generic, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 import vapoursynth as vs
 
@@ -156,7 +156,7 @@ try:
 
             self._dst_pointers = [int(source.data) for source in self.dst_stacked_planes]
 
-    class PyPluginCupy(Generic[FD_T], PyPluginCupyBase[FD_T, NDArray[Any]]):
+    class PyPluginCupy(PyPluginCupyBase[FD_T, NDArray[Any]]):
         def _invoke_func(self) -> OutputFunc_T:
             assert self.ref_clip.format
 

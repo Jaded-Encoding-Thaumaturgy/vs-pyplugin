@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 import vapoursynth as vs
 
@@ -210,7 +210,7 @@ try:
 
             return output_func
 
-    class PyPluginNumpy(Generic[FD_T], PyPluginNumpyBase[FD_T, NDArray[Any]]):
+    class PyPluginNumpy(PyPluginNumpyBase[FD_T, NDArray[Any]]):
         ...
 
     this_backend.set_available(True)
