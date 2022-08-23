@@ -14,7 +14,7 @@ class PyBackend(IntEnum):
     CUDA = 2
     CYTHON = 3
 
-    def set_available(self, is_available: bool, e: BaseException | None = None) -> None:
+    def set_available(self, is_available: bool, e: ModuleNotFoundError | None = None) -> None:
         if not is_available:
             _unavailable_backends.add((self, e))
         elif not self.is_available:
@@ -29,8 +29,8 @@ class PyBackend(IntEnum):
         return self not in {backend for backend, _ in _unavailable_backends}
 
     @property
-    def import_error(self) -> BaseException | None:
+    def import_error(self) -> ModuleNotFoundError | None:
         return next((e for backend, e in _unavailable_backends if backend is self), None)
 
 
-_unavailable_backends = set[tuple[PyBackend, BaseException | None]]()
+_unavailable_backends = set[tuple[PyBackend, ModuleNotFoundError | None]]()
