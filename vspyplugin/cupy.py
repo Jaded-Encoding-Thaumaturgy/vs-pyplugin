@@ -208,7 +208,7 @@ try:
                                 for idx, frame in enumerate(f)
                             ]
 
-                            func_MultiSrcIPP(self, inputs_data, self.dst_stacked_planes[p], fout, p, n)
+                            func_MultiSrcIPP(inputs_data, self.dst_stacked_planes[p], fout, p, n)
 
                         return self.from_device(fout)
                 else:
@@ -220,7 +220,7 @@ try:
                             fout = f.copy()
 
                             for p in range(fout.format.num_planes):
-                                func_SingleSrcIPP(self, self.to_device(f, 0, p), self.dst_stacked_planes[p], fout, p, n)
+                                func_SingleSrcIPP(self.to_device(f, 0, p), self.dst_stacked_planes[p], fout, p, n)
 
                             return self.from_device(fout)
                     else:
@@ -230,7 +230,7 @@ try:
                             pre_stacked_clip = _stack_frame(f, 0)
 
                             for p in range(fout.format.num_planes):
-                                func_SingleSrcIPP(self, pre_stacked_clip, self.dst_stacked_planes[p], fout, p, n)
+                                func_SingleSrcIPP(pre_stacked_clip, self.dst_stacked_planes[p], fout, p, n)
 
                             return self.from_device(fout)
             else:
@@ -242,7 +242,7 @@ try:
                         fout = f[0].copy()
 
                         func_MultiSrcIPF(
-                            self, [_stack_frame(frame, idx) for idx, frame in enumerate(f)],
+                            [_stack_frame(frame, idx) for idx, frame in enumerate(f)],
                             self.dst_stacked_arr, fout, n
                         )
 
@@ -254,7 +254,7 @@ try:
                     def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
                         fout = f.copy()
 
-                        func_SingleSrcIPF(self, _stack_whole_frame(f, 0), self.dst_stacked_arr, fout, n)
+                        func_SingleSrcIPF(_stack_whole_frame(f, 0), self.dst_stacked_arr, fout, n)
 
                         return self.from_device(fout)
 
