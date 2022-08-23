@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-
 from dataclasses import dataclass
 from functools import partial
 from itertools import count
-from typing import TYPE_CHECKING, Any, Callable, Generic, Type, TypeVar, overload, cast
+from typing import TYPE_CHECKING, Any, Callable, Generic, Type, TypeVar, cast, overload
 
 import vapoursynth as vs
 
-from .abstracts import PyPluginBackendBase, FD_T, DT_T
+from .abstracts import DT_T, FD_T, PyPluginBackendBase
 from .backends import PyBackend
 from .coroutines import frame_eval_async, get_frame, get_frames
-from .types import FilterMode, copy_signature, OutputFunc_T
+from .types import FilterMode, OutputFunc_T, copy_signature
 
 __all__ = [
     'PyPluginBase', 'PyPlugin',
