@@ -2,6 +2,17 @@ from __future__ import annotations
 
 import vapoursynth as vs
 
+from typing import Any, TypeVar, Callable
+
+__all__ = [
+    'get_resolutions',
+    'get_c_dtype_short',
+    'get_c_dtype_long',
+    'erase_module'
+]
+
+F = TypeVar('F', bound=Callable[..., Any])
+
 
 def get_resolutions(clip: vs.VideoNode | vs.VideoFrame, strip: bool = False) -> tuple[tuple[int, int, int], ...]:
     assert clip.format
@@ -56,3 +67,10 @@ def get_c_dtype_long(clip: vs.VideoNode) -> str:
         return 'unsigned int'
 
     raise RuntimeError
+
+
+def erase_module(func: F) -> F:
+    if hasattr(func, '__module__') and func.__module__ == '__vapoursynth__':
+        func.__module__ = None  # type: ignore
+
+    return func
