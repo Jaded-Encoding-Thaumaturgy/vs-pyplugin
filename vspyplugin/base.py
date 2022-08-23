@@ -11,7 +11,7 @@ import vapoursynth as vs
 from .abstracts import PyPluginBackendBase, FD_T, DT_T
 from .backends import PyBackend
 from .coroutines import frame_eval_async, get_frame, get_frames
-from .types import FilterMode, copy_signature
+from .types import FilterMode, copy_signature, OutputFunc_T
 
 __all__ = [
     'PyPlugin',
@@ -207,9 +207,7 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
         def _stack_frame(frame: vs.VideoFrame, idx: int) -> memoryview | list[memoryview]:
             return frame[0] if self.is_single_plane[idx] else [frame[p] for p in {0, 1, 2}]
 
-        output_func: (
-            Callable[[vs.VideoFrame, int], vs.VideoFrame] | Callable[[tuple[vs.VideoFrame, ...], int], vs.VideoFrame]
-        )
+        output_func: OutputFunc_T
 
         if self.output_per_plane:
             if self.clips:
@@ -276,6 +274,9 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
 
                         return fout
 
+        return self._invoke_process(output_func)
+
+    def _invoke_process(self, output_func: OutputFunc_T) -> vs.VideoNode:
         modify_frame_partial = partial(
             vs.core.std.ModifyFrame, self.ref_clip, (self.ref_clip, *self.clips), output_func
         )

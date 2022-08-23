@@ -3,11 +3,14 @@ from __future__ import annotations
 from enum import IntEnum
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar, cast
 
+import vapoursynth as vs
+
 __all__ = [
     'SupportsKeysAndGetItem',
     'F',
     'copy_signature',
-    'FilterMode'
+    'FilterMode',
+    'OutputFunc_T'
 ]
 
 _KT = TypeVar('_KT')
@@ -42,3 +45,6 @@ class FilterMode(IntEnum):
 
     Async = 2
     """Async and parallelized requests"""
+
+
+OutputFunc_T = Callable[[vs.VideoFrame, int], vs.VideoFrame] | Callable[[tuple[vs.VideoFrame, ...], int], vs.VideoFrame]
