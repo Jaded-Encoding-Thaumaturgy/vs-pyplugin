@@ -63,8 +63,8 @@ try:
     from cupy import RawKernel
     from numpy.typing import NDArray
 
-    from .numpy import NDT_T
     from .cupy import PyPluginCupyBase
+    from .numpy import NDT_T
 
     class CudaKernelFunction(Generic[NDT_T]):
         def __call__(
