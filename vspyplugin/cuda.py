@@ -4,17 +4,18 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from string import Template
-from typing import TYPE_CHECKING, Any, Literal, Sequence, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar, cast
 
 import vapoursynth as vs
 
+from .abstracts import DT_T, FD_T
 from .backends import PyBackend
-from .base import FD_T, PyPluginOptions, PyPluginUnavailableBackend
+from .base import PyPluginOptions, PyPluginUnavailableBackend
 from .types import FilterMode
 from .utils import get_c_dtype_long, get_resolutions
 
 __all__ = [
-    'PyPluginCuda',
+    'PyPluginCudaBase', 'PyPluginCuda',
     'CudaCompileFlags', 'PyPluginCudaOptions'
 ]
 
@@ -60,7 +61,7 @@ try:
     from cupy import RawKernel
     from numpy.typing import NDArray
 
-    from .cupy import PyPluginCupy
+    from .cupy import PyPluginCupyBase
 
     class CudaKernelFunction:
         def __call__(
@@ -102,7 +103,7 @@ try:
             def __getattribute__(self, __name: str) -> CudaKernelFunctionPlanes:
                 ...
 
-    class PyPluginCuda(PyPluginCupy[FD_T]):
+    class PyPluginCudaBase(PyPluginCupyBase[FD_T, DT_T]):
         backend = this_backend
 
         cuda_kernel: str | tuple[str | Path, str | Sequence[str]]
@@ -329,6 +330,9 @@ try:
                 name: CudaKernelFunctionPlanes(funcs[0], funcs)
                 for name, funcs in kernel_functions.items()
             })
+
+    class PyPluginCuda(Generic[FD_T], PyPluginCudaBase[FD_T, NDArray[Any]]):
+        ...
 
     this_backend.set_available(True)
 except BaseException as e:

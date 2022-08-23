@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Callable, Generic, cast
 
 import vapoursynth as vs
 
-from .abstracts import FD_T
+from .abstracts import DT_T, FD_T
 from .backends import PyBackend
 from .base import PyPlugin, PyPluginUnavailableBackend
 from .types import OutputFunc_T, copy_signature
 from .utils import get_resolutions
 
 __all__ = [
-    'PyPluginCupy'
+    'PyPluginCupyBase', 'PyPluginCupy'
 ]
 
 this_backend = PyBackend.CUPY
@@ -25,14 +25,14 @@ try:
     from cupy import cuda
     from numpy.typing import NDArray
 
-    from .numpy import PyPluginNumpy
+    from .numpy import PyPluginNumpy, PyPluginNumpyBase
 
     if TYPE_CHECKING:
         concatenate: Callable[..., NDArray[Any]]
     else:
         from cupy._core import concatenate_method as concatenate
 
-    class PyPluginCupy(PyPluginNumpy[FD_T]):
+    class PyPluginCupyBase(PyPluginNumpyBase[FD_T, DT_T]):
         backend = this_backend
 
         cuda_num_streams: int = 0
@@ -247,6 +247,9 @@ try:
                         return self.from_device(fout)
 
             return self._invoke_process(output_func)
+
+    class PyPluginCupy(Generic[FD_T], PyPluginCupyBase[FD_T, NDArray[Any]]):
+        ...
 
     this_backend.set_available(True)
 except BaseException as e:

@@ -14,7 +14,7 @@ from .coroutines import frame_eval_async, get_frame, get_frames
 from .types import FilterMode, copy_signature, OutputFunc_T
 
 __all__ = [
-    'PyPlugin',
+    'PyPluginBase', 'PyPlugin',
     'PyPluginUnavailableBackend'
 ]
 
