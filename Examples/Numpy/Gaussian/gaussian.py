@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 import vapoursynth as vs
-from numpy.typing import NDArray
 from scipy.ndimage import gaussian_filter
 from stgfunc import set_output, source
-from vspyplugin import PyPluginNumpy
+from vspyplugin import ProcessMode, PyPluginNumpy
 
 core = vs.core
 
@@ -19,7 +17,8 @@ class GaussianFilterData:
 
 
 class GaussianFilter(PyPluginNumpy[GaussianFilterData]):
-    def process(self, f: vs.VideoFrame, src: NDArray[Any], dst: NDArray[Any], plane: int | None, n: int) -> None:
+    @PyPluginNumpy.process(ProcessMode.SingleSrcIPP)
+    def _(self, src: GaussianFilter.DT, dst: GaussianFilter.DT, f: vs.VideoFrame, plane: int, n: int) -> None:
         gaussian_filter(src, self.fd.sigma_v, output=dst)
 
 
