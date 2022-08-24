@@ -16,6 +16,9 @@ __all__ = [
 ]
 
 this_backend = PyBackend.NUMPY
+this_backend.set_dependencies({
+    'numpy': '1.22.4'
+})
 
 try:
     import numpy as np

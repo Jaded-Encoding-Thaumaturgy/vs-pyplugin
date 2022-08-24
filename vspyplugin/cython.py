@@ -12,6 +12,9 @@ __all__ = [
 ]
 
 this_backend = PyBackend.CYTHON
+this_backend.set_dependencies({
+    'Cython': '0.29.32'
+})
 
 uniqey = 'cython'
 

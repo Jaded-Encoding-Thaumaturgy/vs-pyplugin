@@ -32,5 +32,13 @@ class PyBackend(IntEnum):
     def import_error(self) -> ModuleNotFoundError | None:
         return next((e for backend, e in _unavailable_backends if backend is self), None)
 
+    @property
+    def dependencies(self) -> dict[str, str] | None:
+        return _dependecies_backends.get(self, None)
+
+    def set_dependencies(self, deps: dict[str, str]) -> None:
+        _dependecies_backends[self] = {**deps}
+
 
 _unavailable_backends = set[tuple[PyBackend, ModuleNotFoundError | None]]()
+_dependecies_backends = dict[PyBackend, dict[str, str]]()
