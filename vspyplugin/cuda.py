@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar, cast
 import vapoursynth as vs
 
 from .backends import PyBackend
-from .base import PyPluginOptions, PyPluginUnavailableBackend
-from .types import FD_T, FilterMode
+from .base import PyPluginOptions, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
+from .types import DT_T, FD_T, FilterMode
 from .utils import get_c_dtype_long, get_resolutions
 
 __all__ = [
@@ -342,5 +342,8 @@ try:
 except ModuleNotFoundError as e:
     this_backend.set_available(False, e)
 
-    class PyPluginCuda(PyPluginUnavailableBackend[FD_T]):  # type: ignore
+    class PyPluginCudaBase(PyPluginUnavailableBackendBase[FD_T, DT_T]):  # type: ignore
         backend = this_backend
+
+    class PyPluginCuda(PyPluginUnavailableBackend[FD_T]):  # type: ignore
+        ...

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
 
 from .backends import PyBackend
-from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend
+from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
 from .types import DT_T, FD_T, copy_signature
 
 __all__ = [
@@ -188,5 +188,8 @@ try:
 except ModuleNotFoundError as e:
     this_backend.set_available(False, e)
 
-    class PyPluginCython(PyPluginUnavailableBackend[FD_T]):  # type: ignore
+    class PyPluginCythonBase(PyPluginUnavailableBackendBase[FD_T, DT_T]):  # type: ignore
         backend = this_backend
+
+    class PyPluginCython(PyPluginUnavailableBackend[FD_T]):  # type: ignore
+        ...

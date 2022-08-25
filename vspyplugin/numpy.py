@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 import vapoursynth as vs
 
 from .backends import PyBackend
-from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend
-from .types import FD_T, OutputFunc_T, copy_signature
+from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
+from .types import DT_T, FD_T, OutputFunc_T, copy_signature
 from .utils import get_resolutions
 
 __all__ = [
@@ -219,5 +219,8 @@ try:
 except ModuleNotFoundError as e:
     this_backend.set_available(False, e)
 
-    class PyPluginNumpy(PyPluginUnavailableBackend[FD_T]):  # type: ignore
+    class PyPluginNumpyBase(PyPluginUnavailableBackendBase[FD_T, DT_T]):  # type: ignore
         backend = this_backend
+
+    class PyPluginNumpy(PyPluginUnavailableBackend[FD_T]):  # type: ignore
+        ...

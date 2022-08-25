@@ -15,6 +15,7 @@ from .types import DT_T, FD_T, FilterMode, OutputFunc_T, copy_signature
 __all__ = [
     'PyPluginBase', 'PyPlugin',
     'PyPluginOptions',
+    'PyPluginUnavailableBackendBase',
     'PyPluginUnavailableBackend'
 ]
 
@@ -358,9 +359,13 @@ class PyPlugin(PyPluginBase[FD_T, memoryview]):
         return output_func
 
 
-class PyPluginUnavailableBackend(PyPlugin[FD_T]):
+class PyPluginUnavailableBackendBase(PyPluginBase[FD_T, DT_T]):
     @copy_signature(PyPlugin.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         from .exceptions import UnavailableBackend
 
         raise UnavailableBackend(self.backend, self)
+
+
+class PyPluginUnavailableBackend(PyPluginUnavailableBackendBase[FD_T, Any]):
+    ...
