@@ -4,8 +4,7 @@ from functools import lru_cache
 
 import vapoursynth as vs
 from stgfunc import set_output, source
-from vspyplugin import ProcessMode, PyPluginCuda
-from vspyplugin.types import FilterMode
+from vspyplugin import ProcessMode, PyPluginCuda, FilterMode
 
 core = vs.core
 
