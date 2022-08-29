@@ -43,9 +43,9 @@ try:
         backend = this_backend
 
         @classmethod
-        def to_host(cls, f: vs.VideoFrame, plane: int) -> NDT_T:
+        def to_host(cls, f: vs.VideoFrame, plane: int, strict: bool = False) -> NDT_T:
             ptr = f.get_read_ptr(plane)
-            ctype = cls.get_arr_ctype_from_clip(f, plane)
+            ctype = cls.get_arr_ctype_from_clip(f, plane, strict)
 
             return asarray(ctypes_cast(ptr, ptr, ctype).contents)  # type: ignore
 
@@ -58,13 +58,15 @@ try:
                 memmove(dst.get_write_ptr(plane), src_ptr, length)
 
         @classmethod
-        def get_arr_ctype_from_clip(cls, clip: vs.VideoNode | vs.VideoFrame, plane: int) -> type[PointerType]:
+        def get_arr_ctype_from_clip(
+            cls, clip: vs.VideoNode | vs.VideoFrame, plane: int, strict: bool = False
+        ) -> type[PointerType]:
             key = hash((clip.format.id, clip.width, clip.height, plane))  # type: ignore
 
             if key not in _cache_arr_dtypes:
                 if plane == 0:
                     _cache_arr_dtypes[key] = cls.get_arr_ctype(
-                        clip.width, clip.height, cls.get_dtype(clip)
+                        clip.width, clip.height, cls.get_dtype(clip, strict)
                     )
                 else:
                     assert clip.format
@@ -72,7 +74,7 @@ try:
                     _cache_arr_dtypes[key] = cls.get_arr_ctype(
                         clip.width >> clip.format.subsampling_h,
                         clip.height >> clip.format.subsampling_h,
-                        cls.get_dtype(clip)
+                        cls.get_dtype(clip, strict)
                     )
 
             return _cache_arr_dtypes[key]
@@ -138,7 +140,7 @@ try:
 
         @classmethod
         def get_stack_whole_frame_func(
-            cls, channels_last: bool, n_channels: int = 3
+            cls, channels_last: bool, n_channels: int = 3, strict: bool = False
         ) -> Callable[[vs.VideoFrame], NDT_T]:
             if channels_last:
                 axis = n_channels - 1
@@ -147,14 +149,14 @@ try:
 
                 def _stack_whole_frame(frame: vs.VideoFrame) -> NDT_T:
                     return concatenate([
-                        cls.to_host(frame, plane)[stack_slice] for plane in {0, 1, 2}
+                        cls.to_host(frame, plane, strict)[stack_slice] for plane in {0, 1, 2}
                     ], axis=axis)
             else:
                 axis = n_channels - 3
 
                 def _stack_whole_frame(frame: vs.VideoFrame) -> NDT_T:
                     return concatenate([
-                        cls.to_host(frame, plane) for plane in {0, 1, 2}
+                        cls.to_host(frame, plane, strict) for plane in {0, 1, 2}
                     ], axis=axis)
 
             return _stack_whole_frame
