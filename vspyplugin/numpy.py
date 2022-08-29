@@ -38,13 +38,15 @@ try:
     class PyPluginNumpyBase(PyPluginBase[FD_T, NDT_T]):
         backend = this_backend
 
-        def to_host(self, f: vs.VideoFrame, plane: int) -> NDT_T:
+        @classmethod
+        def to_host(cls, f: vs.VideoFrame, plane: int) -> NDT_T:
             p = f[plane]
-            return np.ndarray(p.shape, self.get_dtype(f), p)  # type: ignore
+            return np.ndarray(p.shape, cls.get_dtype(f), p)  # type: ignore
 
-        def from_host(self, src: NDArray[Any], dst: vs.VideoFrame) -> None:
+        @classmethod
+        def from_host(self, src: NDArray[Any], dst: vs.VideoFrame, planes_slices: tuple[slice, ...]) -> None:
             for plane in range(dst.format.num_planes):
-                npcopyto(self.to_host(dst, plane), src[self._slice_idxs[plane]])
+                npcopyto(self.to_host(dst, plane), src[planes_slices[plane]])
 
         @staticmethod
         def get_dtype(clip: vs.VideoNode | vs.VideoFrame) -> dtype[Any]:
@@ -74,36 +76,60 @@ try:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
 
+        @classmethod
+        def get_planes_slices(
+            cls, clip: vs.VideoNode | vs.VideoFrame, channels_last: bool = False, n_channels: int = 3
+        ) -> tuple[slice, ...]:
+            assert clip.format
+
             no_slice = slice(None, None, None)
-            self._slice_idxs = cast(list[slice], [
-                (
-                    [plane, no_slice][self.channels_last],
-                    no_slice,
-                    [no_slice, plane][self.channels_last]
-                ) for plane in range(3)
-            ])
 
-        def _invoke_func(self) -> OutputFunc_T:
-            assert self.ref_clip.format
+            return cast(
+                tuple[slice, ...],
+                tuple(
+                    (
+                        [plane, no_slice][channels_last],
+                        *([no_slice] * (n_channels - 2)),
+                        [no_slice, plane][channels_last]
+                    ) for plane in range(clip.format.num_planes)
+                )
+            )
 
-            if self.channels_last:
+        @classmethod
+        def get_stack_whole_frame_func(
+            cls, channels_last: bool, n_channels: int = 3
+        ) -> Callable[[vs.VideoFrame], NDT_T]:
+            if channels_last:
+                axis = n_channels - 1
+
                 stack_slice = (slice(None), slice(None), None)
 
                 def _stack_whole_frame(frame: vs.VideoFrame) -> NDT_T:
                     return concatenate([
-                        self.to_host(frame, plane)[stack_slice] for plane in {0, 1, 2}
-                    ], axis=2)
+                        cls.to_host(frame, plane)[stack_slice] for plane in {0, 1, 2}
+                    ], axis=axis)
             else:
+                axis = n_channels - 3
+
                 def _stack_whole_frame(frame: vs.VideoFrame) -> NDT_T:
                     return concatenate([
-                        self.to_host(frame, plane) for plane in {0, 1, 2}
-                    ], axis=0)
+                        cls.to_host(frame, plane) for plane in {0, 1, 2}
+                    ], axis=axis)
+
+            return _stack_whole_frame
+
+        def _invoke_func(self) -> OutputFunc_T:
+            assert self.ref_clip.format
+
+            planes_idx = self.get_planes_slices(self.ref_clip, self.channels_last)
+
+            stack_whole_frame = self.get_stack_whole_frame_func(self.channels_last)
 
             def _stack_frame(frame: vs.VideoFrame, idx: int) -> NDT_T:
                 if self.is_single_plane[idx]:
                     return self.to_host(frame, 0)
 
-                return _stack_whole_frame(frame)
+                return stack_whole_frame(frame)
 
             if not self.output_per_plane:
                 dst_stacked_arr = np.zeros(
@@ -172,7 +198,7 @@ try:
                             dst_stacked_arr, fout, n
                         )
 
-                        self.from_host(dst_stacked_arr, fout)
+                        self.from_host(dst_stacked_arr, fout, planes_idx)
 
                         return fout
                 else:
@@ -204,9 +230,9 @@ try:
                         def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
                             fout = f.copy()
 
-                            func_SingleSrcIPF(_stack_whole_frame(f), dst_stacked_arr, fout, n)
+                            func_SingleSrcIPF(stack_whole_frame(f), dst_stacked_arr, fout, n)
 
-                            self.from_host(dst_stacked_arr, fout)
+                            self.from_host(dst_stacked_arr, fout, planes_idx)
 
                             return fout
 

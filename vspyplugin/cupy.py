@@ -151,9 +151,11 @@ try:
                 else:
                     shape_channels = (3, ) + shape
 
+                planes_slices = self.get_planes_slices(self.ref_clip, self.channels_last)
+
                 self.dst_stacked_arr = cp.zeros(shape_channels, self.get_dtype(self.ref_clip))
                 self.dst_stacked_planes = [
-                    self.dst_stacked_arr[self._slice_idxs[plane]]
+                    self.dst_stacked_arr[planes_slices[plane]]
                     for plane in range(self.ref_clip.format.num_planes)
                 ]
 
