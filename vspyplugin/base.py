@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial
 from itertools import count
-from typing import TYPE_CHECKING, Any, Callable, Generic, Type, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Generic, Type, cast, overload
 
 import vapoursynth as vs
 
@@ -146,7 +146,7 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
                 setattr(self, name, value)
                 kwargs.pop(name)
 
-        if self.filter_data and not isinstance(self.filter_data, TypeVar):
+        if callable(self.filter_data):
             self.fd = self.filter_data(**kwargs)  # type: ignore
         else:
             self.fd = None  # type: ignore
