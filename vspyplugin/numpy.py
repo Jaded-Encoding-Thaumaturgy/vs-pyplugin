@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from functools import partial
+from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 import vapoursynth as vs
@@ -21,9 +21,12 @@ this_backend.set_dependencies({
 })
 
 try:
+    from ctypes import POINTER, _cast as ctypes_cast, _Pointer as PointerType, memmove  # type: ignore
+
     import numpy as np
     from numpy import dtype
-    from numpy.core._multiarray_umath import copyto as npcopyto
+    from numpy.core._multiarray_umath import asarray
+    from numpy.ctypeslib import _scalar_type_map  # type: ignore
     from numpy.typing import NDArray
 
     NDT_T = TypeVar('NDT_T', bound=NDArray[Any])
@@ -34,27 +37,65 @@ try:
         from numpy.core.numeric import concatenate
 
     _cache_dtypes = dict[int, dtype[Any]]()
+    _cache_arr_dtypes = dict[int, type[PointerType]]()
 
     class PyPluginNumpyBase(PyPluginBase[FD_T, NDT_T]):
         backend = this_backend
 
         @classmethod
         def to_host(cls, f: vs.VideoFrame, plane: int) -> NDT_T:
-            p = f[plane]
-            return np.ndarray(p.shape, cls.get_dtype(f), p)  # type: ignore
+            ptr = f.get_read_ptr(plane)
+            ctype = cls.get_arr_ctype_from_clip(f, plane)
+
+            return asarray(ctypes_cast(ptr, ptr, ctype).contents)  # type: ignore
 
         @classmethod
-        def from_host(self, src: NDArray[Any], dst: vs.VideoFrame, planes_slices: tuple[slice, ...]) -> None:
+        def from_host(
+            self, src: NDArray[Any], dst: vs.VideoFrame, planes_slices: tuple[slice, ...]
+        ) -> None:
             for plane in range(dst.format.num_planes):
-                npcopyto(self.to_host(dst, plane), src[planes_slices[plane]])
+                src_ptr, length = src[planes_slices[plane]].__array_interface__['data']
+                memmove(dst.get_write_ptr(plane), src_ptr, length)
+
+        @classmethod
+        def get_arr_ctype_from_clip(cls, clip: vs.VideoNode | vs.VideoFrame, plane: int) -> type[PointerType]:
+            key = hash((clip.format.id, clip.width, clip.height, plane))  # type: ignore
+
+            if key not in _cache_arr_dtypes:
+                if plane == 0:
+                    _cache_arr_dtypes[key] = cls.get_arr_ctype(
+                        clip.width, clip.height, cls.get_dtype(clip)
+                    )
+                else:
+                    assert clip.format
+
+                    _cache_arr_dtypes[key] = cls.get_arr_ctype(
+                        clip.width >> clip.format.subsampling_h,
+                        clip.height >> clip.format.subsampling_h,
+                        cls.get_dtype(clip)
+                    )
+
+            return _cache_arr_dtypes[key]
+
+        @classmethod
+        @lru_cache
+        def get_arr_ctype(cls, width: int, height: int, data_type: dtype[Any]) -> type[PointerType]:
+            ctypes_type = _scalar_type_map[data_type.newbyteorder('=')]
+
+            cast_type = POINTER(ctypes_type)
+
+            element_type = height * (width * cast_type._type_)
+
+            return POINTER(element_type)
 
         @staticmethod
-        def get_dtype(clip: vs.VideoNode | vs.VideoFrame) -> dtype[Any]:
+        def get_dtype(clip: vs.VideoNode | vs.VideoFrame, strict: bool = False) -> dtype[Any]:
             fmt = cast(vs.VideoFormat, clip.format)
 
             if fmt.id not in _cache_dtypes:
                 stype = 'float' if fmt.sample_type is vs.FLOAT else 'uint'
-                _cache_dtypes[fmt.id] = dtype(f'{stype}{fmt.bits_per_sample}')
+                bits = (fmt.bytes_per_sample * 8) if strict else fmt.bits_per_sample
+                _cache_dtypes[fmt.id] = dtype(f'{stype}{bits}')
 
             return _cache_dtypes[fmt.id]
 
