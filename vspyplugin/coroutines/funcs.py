@@ -7,9 +7,10 @@ from __future__ import annotations
 from typing import Iterable
 
 import vapoursynth as vs
+from vstools import T0, T
 
 from .coros import GatherRequests, SingleFrameRequest
-from .types import AnyCoroutine, S, T
+from .types import AnyCoroutine
 
 __all__ = [
     'get_frame', 'get_frames', 'get_frames_shifted',
@@ -39,9 +40,9 @@ async def get_frames_shifted(
     return await wait(get_frame(clip, frame_no + shift) for shift in shifts)
 
 
-async def gather(*coroutines: AnyCoroutine[S, T]) -> tuple[T, ...]:
+async def gather(*coroutines: AnyCoroutine[T0, T]) -> tuple[T, ...]:
     return await GatherRequests(coroutines)
 
 
-async def wait(coroutines: Iterable[AnyCoroutine[S, T]]) -> tuple[T, ...]:
+async def wait(coroutines: Iterable[AnyCoroutine[T0, T]]) -> tuple[T, ...]:
     return await GatherRequests(tuple(coroutines))

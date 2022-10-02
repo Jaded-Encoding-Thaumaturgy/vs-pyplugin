@@ -4,11 +4,11 @@ from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 import vapoursynth as vs
+from vstools import copy_signature, get_resolutions
 
 from .backends import PyBackend
 from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
-from .types import DT_T, FD_T, OutputFunc_T, copy_signature
-from .utils import get_resolutions
+from .types import DT_T, FD_T, OutputFunc_T
 
 __all__ = [
     'PyPluginNumpyBase', 'PyPluginNumpy',
@@ -21,7 +21,10 @@ this_backend.set_dependencies({
 })
 
 try:
-    from ctypes import POINTER, _cast as ctypes_cast, _Pointer as PointerType, memmove  # type: ignore
+    from ctypes import POINTER
+    from ctypes import _cast as ctypes_cast  # type: ignore
+    from ctypes import _Pointer as PointerType  # type: ignore
+    from ctypes import memmove
 
     import numpy as np
     from numpy import dtype
@@ -109,7 +112,7 @@ try:
 
             return [
                 function((height, width), dtype=PyPluginNumpy.get_dtype(clip), order='C')  # type: ignore
-                for _, width, height in get_resolutions(clip, True)
+                for _, width, height in get_resolutions(clip)
             ]
 
         def _get_data_len(self, arr: NDT_T) -> int:

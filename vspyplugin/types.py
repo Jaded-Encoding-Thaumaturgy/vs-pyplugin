@@ -1,49 +1,21 @@
 from __future__ import annotations
 
-from enum import IntEnum
-from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar, Union, cast
+from typing import Any, Callable, TypeVar, Union
 
 import vapoursynth as vs
+from vstools import F, SupportsKeysAndGetItem, CustomIntEnum
 
 __all__ = [
-    'SupportsKeysAndGetItem',
-    'F', 'F_VD',
-    'FD_T', 'DT_T',
-    'copy_signature',
     'FilterMode',
+
+    'FD_T', 'DT_T',
+
+    'PassthroughC',
     'OutputFunc_T'
 ]
 
-_KT = TypeVar('_KT')
-_VT_co = TypeVar('_VT_co', covariant=True)
 
-
-F = TypeVar('F', bound=Callable[..., Any])
-F_VD = TypeVar('F_VD', bound=Callable[..., vs.VideoNode])
-
-
-class SupportsIndexing(Protocol[_VT_co]):
-    def __getitem__(self, __k: int) -> _VT_co:
-        ...
-
-
-class SupportsKeysAndGetItem(Protocol[_KT, _VT_co]):
-    def keys(self) -> Iterable[_KT]:
-        ...
-
-    def __getitem__(self, __k: _KT) -> _VT_co:
-        ...
-
-
-class copy_signature(Generic[F]):
-    def __init__(self, target: F) -> None:
-        ...
-
-    def __call__(self, wrapped: Callable[..., Any]) -> F:
-        return cast(F, wrapped)
-
-
-class FilterMode(IntEnum):
+class FilterMode(CustomIntEnum):
     Serial = 0
     """Serial processing"""
 
@@ -54,11 +26,11 @@ class FilterMode(IntEnum):
     """Async and parallelized requests"""
 
 
-OutputFunc_T = Union[
-    Callable[[vs.VideoFrame, int], vs.VideoFrame], Callable[[tuple[vs.VideoFrame, ...], int], vs.VideoFrame]
-]
-
 FD_T = TypeVar('FD_T', bound=Any | SupportsKeysAndGetItem[str, object] | None)
 DT_T = TypeVar('DT_T')
 
 PassthroughC = Callable[[F], F]
+
+OutputFunc_T = Union[
+    Callable[[vs.VideoFrame, int], vs.VideoFrame], Callable[[tuple[vs.VideoFrame, ...], int], vs.VideoFrame]
+]

@@ -7,8 +7,9 @@ from __future__ import annotations
 from typing import Any, Callable, Generator, Generic
 
 import vapoursynth as vs
+from vstools import T0, T
 
-from .types import AnyCoroutine, FrameRequest, S, T
+from .types import AnyCoroutine, FrameRequest
 
 core = vs.core
 
@@ -56,7 +57,7 @@ class SingleFrameRequest(FrameRequest):
 
 
 class GatherRequests(Generic[T], FrameRequest):
-    def __init__(self, coroutines: tuple[AnyCoroutine[S, T], ...]) -> None:
+    def __init__(self, coroutines: tuple[AnyCoroutine[T0, T], ...]) -> None:
         if len(coroutines) <= 1:
             raise ValueError('GatherRequests: you need to pass at least 2 coroutines!')
 
@@ -105,14 +106,14 @@ def _wrapped_modify_frame(blank_clip: vs.VideoNode) -> Callable[[vs.VideoFrame],
 
 
 def _coro2node_wrapped(
-    base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[S, T]
+    base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[T0, T]
 ) -> tuple[vs.VideoNode, Atom[T]]:
     atom = Atom[T]()
     return coro2node(base_clip, frameno, coro, atom), atom
 
 
 def coro2node(
-    base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[S, T], wrap: Atom[T] | None = None
+    base_clip: vs.VideoNode, frameno: int, coro: AnyCoroutine[T0, T], wrap: Atom[T] | None = None
 ) -> vs.VideoNode:
     assert base_clip.format
 
@@ -125,7 +126,7 @@ def coro2node(
 
     _wrap_frame = _wrapped_modify_frame(blank_clip)
 
-    def _continue(wrapped_value: S | None) -> vs.VideoNode:
+    def _continue(wrapped_value: T0 | None) -> vs.VideoNode:
         if wrap:
             wrap.unset()
 

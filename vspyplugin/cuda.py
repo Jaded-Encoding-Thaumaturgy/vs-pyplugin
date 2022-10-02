@@ -7,11 +7,12 @@ from string import Template
 from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar, cast
 
 import vapoursynth as vs
+from vstools import get_lowest_value, get_neutral_value, get_peak_value, get_resolutions
 
 from .backends import PyBackend
 from .base import PyPluginOptions, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
 from .types import DT_T, FD_T, FilterMode
-from .utils import get_c_dtype_long, get_resolutions
+from .utils import get_c_dtype_long
 
 __all__ = [
     'PyPluginCudaBase', 'PyPluginCuda',
@@ -140,8 +141,6 @@ try:
             return blk_size_w * blk_size_h * dtype_size
 
         def get_kernel_args(self, plane: int, func_name: str, width: int, height: int, **kwargs: Any) -> dict[str, Any]:
-            from vsutil import get_lowest_value, get_neutral_value, get_peak_value
-
             assert self.ref_clip.format
 
             block_x, block_y, *block_xx = self.get_kernel_size(plane, func_name, width, height)

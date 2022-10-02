@@ -4,7 +4,8 @@ This module and original idea is by cid-chan (Sarah <cid@cid-chan.moe>)
 
 from __future__ import annotations
 
-from typing import Any, Callable, Coroutine, TypeVar
+from typing import Any, Callable, Coroutine
+from vstools import T, T0
 
 import vapoursynth as vs
 
@@ -16,7 +17,4 @@ class FrameRequest:
         raise NotImplementedError
 
 
-T = TypeVar('T')
-S = TypeVar('S')
-
-AnyCoroutine = Coroutine[FrameRequest, S | None, T]
+AnyCoroutine = Coroutine[FrameRequest, T0 | None, T]

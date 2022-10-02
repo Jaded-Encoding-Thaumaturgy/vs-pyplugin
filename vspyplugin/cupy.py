@@ -4,11 +4,11 @@ from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import vapoursynth as vs
+from vstools import copy_signature, get_resolutions
 
 from .backends import PyBackend
 from .base import PyPlugin, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
-from .types import DT_T, FD_T, OutputFunc_T, copy_signature
-from .utils import get_resolutions
+from .types import DT_T, FD_T, OutputFunc_T
 
 __all__ = [
     'PyPluginCupyBase', 'PyPluginCupy'
@@ -102,7 +102,7 @@ try:
 
             return [
                 function((height, width), dtype=PyPluginNumpy.get_dtype(clip), order='C')
-                for _, width, height in get_resolutions(clip, True)
+                for _, width, height in get_resolutions(clip)
             ]
 
         def _get_data_len(self, arr: NDT_T) -> int:

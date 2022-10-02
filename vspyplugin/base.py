@@ -6,11 +6,12 @@ from itertools import count
 from typing import TYPE_CHECKING, Any, Callable, Generic, Type, cast, overload
 
 import vapoursynth as vs
+from vstools import copy_signature
 
 from .abstracts import PyPluginBackendBase
 from .backends import PyBackend
 from .coroutines import frame_eval_async, get_frame, get_frames
-from .types import DT_T, FD_T, FilterMode, OutputFunc_T, copy_signature
+from .types import DT_T, FD_T, FilterMode, OutputFunc_T
 
 __all__ = [
     'PyPluginBase', 'PyPlugin',

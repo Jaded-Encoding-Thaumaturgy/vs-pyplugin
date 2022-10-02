@@ -3,9 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
 
+from vstools import copy_signature
+
 from .backends import PyBackend
 from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
-from .types import DT_T, FD_T, copy_signature
+from .types import DT_T, FD_T
 
 __all__ = [
     'PyPluginCythonBase', 'PyPluginCython'

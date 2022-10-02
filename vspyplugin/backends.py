@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from enum import IntEnum
+from vstools import CustomIntEnum
 
 __all__ = [
     'PyBackend'
 ]
 
 
-class PyBackend(IntEnum):
+class PyBackend(CustomIntEnum):
     NONE = -1
     NUMPY = 0
     CUPY = 1
