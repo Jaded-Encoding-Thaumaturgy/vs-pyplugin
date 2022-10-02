@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any, Callable, Generator, Generic
 
 import vapoursynth as vs
-from vstools import T0, T
+from vstools import T0, CustomTypeError, CustomValueError, T
 
 from .types import AnyCoroutine, FrameRequest
 
@@ -59,7 +59,7 @@ class SingleFrameRequest(FrameRequest):
 class GatherRequests(Generic[T], FrameRequest):
     def __init__(self, coroutines: tuple[AnyCoroutine[T0, T], ...]) -> None:
         if len(coroutines) <= 1:
-            raise ValueError('GatherRequests: you need to pass at least 2 coroutines!')
+            raise CustomValueError('You need to pass at least 2 coroutines!', self.__class__)
 
         self.coroutines = coroutines
 
@@ -142,7 +142,7 @@ def coro2node(
                 return _wrap_frame(value)
 
             if not wrap:
-                raise ValueError('frame_eval_async: You can only return a VideoFrame or VideoNode!')
+                raise CustomTypeError('You can only return a VideoFrame or VideoNode!', coro2node)
 
             wrap.set(value)
 

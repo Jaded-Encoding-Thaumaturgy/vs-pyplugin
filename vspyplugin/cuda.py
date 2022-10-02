@@ -7,7 +7,7 @@ from string import Template
 from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar, cast
 
 import vapoursynth as vs
-from vstools import get_lowest_value, get_neutral_value, get_peak_value, get_resolutions
+from vstools import CustomRuntimeError, get_lowest_value, get_neutral_value, get_peak_value, get_resolutions
 
 from .backends import PyBackend
 from .base import PyPluginOptions, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
@@ -221,7 +221,7 @@ try:
                 kernel_planes_kwargs += kernel_planes_kwargs[-1:] * (3 - len(kernel_planes_kwargs))
 
             if not hasattr(self, 'cuda_kernel'):
-                raise RuntimeError(f'{self.__class__.__name__}: You\'re missing cuda_kernel!')
+                raise CustomRuntimeError('You\'re missing cuda_kernel!', self.__class__)
 
             if isinstance(self.cuda_kernel, tuple):
                 self_cuda_path, cuda_functions = self.cuda_kernel
@@ -242,7 +242,7 @@ try:
             if cuda_path.exists():
                 cuda_kernel_code = cuda_path.read_text()
             elif cuda_path.suffix == '.cu' or len(str(self_cuda_path)) < 24:
-                raise RuntimeError(f'{self.__class__.__name__}: Cuda Kernel file not found!')
+                raise CustomRuntimeError('Cuda Kernel file not found!', self.__class__)
             elif isinstance(self_cuda_path, str):
                 cuda_kernel_code = self_cuda_path
 
@@ -250,7 +250,7 @@ try:
                 cuda_kernel_code = cuda_kernel_code.strip()
 
             if not cuda_kernel_code:
-                raise RuntimeError(f'{self.__class__.__name__}: Cuda Kernel code not found!')
+                raise CustomRuntimeError('Cuda Kernel code not found!', self.__class__)
 
             def _wrap_kernel_function(
                 def_kernel_size: tuple[int, ...],

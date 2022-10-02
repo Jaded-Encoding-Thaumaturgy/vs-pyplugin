@@ -4,7 +4,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import vapoursynth as vs
-from vstools import copy_signature, get_resolutions
+from vstools import CustomValueError, copy_signature, get_resolutions
 
 from .backends import PyBackend
 from .base import PyPlugin, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
@@ -113,7 +113,7 @@ try:
             super().__init__(*args, **kwargs)
 
             if self.cuda_num_streams != 0 and self.cuda_num_streams < 2:
-                raise ValueError(f'{self.__class__.__name__}: cuda_num_streams must be 0 or >= 2!')
+                raise CustomValueError('"cuda_num_streams" must be 0 or >= 2!', self.__class__)
 
             self.cuda_device = cuda.Device()
             self.cuda_memory_pool = cuda.MemoryPool()

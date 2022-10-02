@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Callable, Literal, overload
 
 import vapoursynth as vs
+from vstools import CustomValueError
 
 from .coros import coro2node
 from .types import AnyCoroutine
@@ -95,7 +96,7 @@ def frame_eval(  # type: ignore
                     def _inner(n: int, f: list[vs.VideoFrame]) -> vs.VideoNode:
                         return func(n, f)  # type: ignore
         else:
-            raise ValueError('frame_eval: Function must have 1-2 arguments!')
+            raise CustomValueError('Function must have 1-2 arguments!', frame_eval)
 
         return base_clip.std.FrameEval(_inner, frame_clips, base_clip)
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import vapoursynth as vs
-from vstools import HoldsVideoFormatT, get_video_format
+from vstools import CustomRuntimeError, HoldsVideoFormatT, get_video_format
 
 __all__ = [
     'get_c_dtype_short',
@@ -22,7 +22,7 @@ def get_c_dtype_short(clip: HoldsVideoFormatT) -> str:
     elif fmt.bytes_per_sample == 4:
         return 'uint'
 
-    raise RuntimeError
+    raise CustomRuntimeError(func=get_c_dtype_short)
 
 
 def get_c_dtype_long(clip: HoldsVideoFormatT) -> str:
@@ -40,4 +40,4 @@ def get_c_dtype_long(clip: HoldsVideoFormatT) -> str:
     elif fmt.bytes_per_sample == 4:
         return 'unsigned int'
 
-    raise RuntimeError
+    raise CustomRuntimeError(func=get_c_dtype_long)

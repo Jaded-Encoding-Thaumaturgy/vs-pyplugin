@@ -6,7 +6,7 @@ from itertools import count
 from typing import TYPE_CHECKING, Any, Callable, Generic, Type, cast, overload
 
 import vapoursynth as vs
-from vstools import copy_signature
+from vstools import CustomIndexError, CustomTypeError, CustomValueError, InvalidSubsamplingError, copy_signature
 
 from .abstracts import PyPluginBackendBase
 from .backends import PyBackend
@@ -49,7 +49,7 @@ class PyPluginOptions:
 
         if self.shift_chroma:
             if fmt.sample_type is not vs.FLOAT and self.force_precision != 32:
-                raise ValueError(
+                raise CustomValueError(
                     f'{self.__class__.__name__}: You need to have a clip with float sample type for shift_chroma=True!'
                 )
 
@@ -154,8 +154,6 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
 
         n_clips = 1 + len(self.clips)
 
-        class_name = self.__class__.__name__
-
         inputs_per_plane = self.input_per_plane
 
         if not isinstance(inputs_per_plane, list):
@@ -173,21 +171,22 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
 
         if n_clips < self.min_clips or (self.max_clips > 0 and n_clips > self.max_clips):
             max_clips_str = 'inf' if self.max_clips == -1 else self.max_clips
-            raise ValueError(
-                f'{class_name}: You must pass {self.min_clips} <= n clips <= {max_clips_str}!'
+            raise CustomIndexError(
+                f'You must pass {self.min_clips} <= n clips <= {max_clips_str}!', self.__class__
             )
 
         if not self.output_per_plane and (ref_clip.format.subsampling_w or ref_clip.format.subsampling_h):
-            raise ValueError(
-                f'{class_name}: You can\'t have output_per_plane=False with a subsampled clip!'
+            raise CustomValueError(
+                'You can\'t have output_per_plane=False with a subsampled clip!', self.__class__
             )
 
         for idx, clip, ipp in zip(count(-1), (self.ref_clip, *self.clips), self._input_per_plane):
             assert clip.format
             if not ipp and (clip.format.subsampling_w or clip.format.subsampling_h):
-                clip_type = 'Ref Clip' if idx == -1 else f'Clip Index: {idx}'
-                raise ValueError(
-                    f'{class_name}: You can\'t have input_per_plane=False with a subsampled clip! ({clip_type})'
+                raise InvalidSubsamplingError(
+                    self.__class__,
+                    'You can\'t have input_per_plane=False with a subsampled clip! ({clip_type})',
+                    clip_type='Ref Clip' if idx == -1 else f'Clip Index: {idx}'
                 )
 
     if TYPE_CHECKING:
@@ -228,10 +227,10 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
         annotations = set(func.__annotations__.keys()) - {'return'}
 
         if not annotations:
-            raise ValueError(f'{self.__class__.__name__}: You must type hint the function!')
+            raise CustomTypeError(f'{self.__class__.__name__}: You must type hint the function!', self.__class__)
 
         if annotations - this_args:
-            raise ValueError(f'{self.__class__.__name__}: Unkown arguments specified!')
+            raise CustomTypeError(f'{self.__class__.__name__}: Unkown arguments specified!', self.__class__)
 
         miss_args = this_args - annotations
 

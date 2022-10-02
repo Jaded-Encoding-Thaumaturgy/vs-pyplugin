@@ -2,19 +2,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from vstools import CustomValueError, FuncExceptT
+
 from .backends import PyBackend
-from .base import PyPluginBase
 
 
-class UnavailableBackend(ValueError):
+class UnavailableBackend(CustomValueError):
     """Raised when trying to initialize an unavailable backend"""
 
     def __init__(
-        self, backend: PyBackend, _class: PyPluginBase[Any, Any],
-        message: str = '{class_name}: This plugin is built on top of the {backend} backend which is unavailable!'
+        self, backend: PyBackend, func: FuncExceptT | None = None,
+        message: str = 'This plugin is built on top of the {backend.name} backend which is unavailable!',
+        **kwargs: Any
     ) -> None:
-        self.backend = backend._name_
-        self.class_name = _class.__class__.__name__
-        self.message: str = message
-
-        super().__init__(self.message.format(class_name=self.class_name, backend=self.backend))
+        super().__init__(message, func, backend=backend, **kwargs)

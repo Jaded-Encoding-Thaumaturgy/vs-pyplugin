@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
 
-from vstools import copy_signature
+from vstools import CustomNotImplementedError, CustomRuntimeError, copy_signature
 
 from .backends import PyBackend
 from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
@@ -69,10 +69,8 @@ try:
 
             assert self.ref_clip.format
 
-            class_name = self.__class__.__name__
-
             if not hasattr(self, 'cython_kernel'):
-                raise RuntimeError(f'{class_name}: You\'re missing cython_kernel!')
+                raise CustomRuntimeError('You\'re missing cython_kernel!', self.__class__)
 
             if isinstance(self.cython_kernel, tuple):
                 cython_path, cython_functions = self.cython_kernel
@@ -90,13 +88,13 @@ try:
 
             cython_path = cython_path.absolute().resolve()
             if not cython_path.exists():
-                raise RuntimeError(f'{class_name}: Cython code not found!')
+                raise CustomRuntimeError('Cython code not found!', self.__class__)
 
             if not cython_path.is_file():
-                raise NotImplementedError(f'{class_name}: Directories not yet supported!')
+                raise CustomNotImplementedError('Directories not yet supported!', self.__class__)
 
             if cython_path.suffix != '.pyx':
-                raise RuntimeError(f'{class_name}: Cython code must be a .pyx file!')
+                raise CustomRuntimeError('Cython code must be a .pyx file!', self.__class__)
 
             cython_build_dir = cython_path.parent / '.vspyplugin'
             curr_md5 = str(md5(cython_path.read_bytes()).digest())
@@ -151,7 +149,7 @@ try:
                         remove(cython_build_dir / file)
 
             if module_path is None:
-                raise RuntimeError(f'{class_name}: There was an error compiling the cython module!')
+                raise CustomRuntimeError('There was an error compiling the cython module!', self.__class__)
 
             for old_build in old_builds:
                 for file in listdir(cython_build_dir / old_build):
@@ -163,17 +161,17 @@ try:
             pyd_file = next((file for file in listdir(module_path)), None)
 
             if pyd_file is None:
-                raise RuntimeError(f'{class_name}: There was an error locating the cython module!')
+                raise CustomRuntimeError('There was an error locating the cython module!', self.__class__)
 
             spec = spec_from_file_location(cython_path.stem, module_path / pyd_file)
 
             if spec is None:
-                raise RuntimeError(f'{class_name}: There was an error loading the cython module!')
+                raise CustomRuntimeError('There was an error loading the cython module!', self.__class__)
 
             module = module_from_spec(spec)
 
             if spec.loader is None:
-                raise RuntimeError(f'{class_name}: The cython module is missing the package loader!')
+                raise CustomRuntimeError('The cython module is missing the package loader!', self.__class__)
 
             spec.loader.exec_module(module)
 
