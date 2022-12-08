@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-import vapoursynth as vs
-from stgfunc import set_output, source
-from vspyplugin import ProcessMode, PyPluginCuda, FilterMode
+from stgfunc import source
+from vstools import set_output, vs
 
-core = vs.core
+from vspyplugin import FilterMode, ProcessMode, PyPluginCuda
 
 
 class BilateralFilter(PyPluginCuda[None]):

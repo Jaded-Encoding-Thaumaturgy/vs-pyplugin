@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import vapoursynth as vs
 from scipy.ndimage import gaussian_filter
-from stgfunc import set_output, source
-from vspyplugin import ProcessMode, PyPluginNumpy
+from stgfunc import source
+from vstools import set_output, vs
 
-core = vs.core
+from vspyplugin import ProcessMode, PyPluginNumpy
 
 
 @dataclass

@@ -4,11 +4,10 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Generator
 
-import vapoursynth as vs
-from stgfunc import set_output, source
-from vspyplugin import FilterMode, ProcessMode, PyPluginCuda, PyPluginCudaOptions
+from stgfunc import source
+from vstools import set_output, vs
 
-core = vs.core
+from vspyplugin import FilterMode, ProcessMode, PyPluginCuda, PyPluginCudaOptions
 
 
 @dataclass

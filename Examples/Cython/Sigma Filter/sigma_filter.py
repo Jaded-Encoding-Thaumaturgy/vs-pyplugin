@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import vapoursynth as vs
-from stgfunc import set_output, source
-from vspyplugin import FilterMode, ProcessMode, PyPluginCython, PyPluginOptions
+from stgfunc import source
+from vstools import set_output, vs
 
-core = vs.core
+from vspyplugin import FilterMode, ProcessMode, PyPluginCython, PyPluginOptions
 
 
 @dataclass

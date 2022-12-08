@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from math import ceil
 
-import vapoursynth as vs
 from numba import jit, prange  # type: ignore
-from stgfunc import set_output, source
-from vspyplugin import PyPluginNumpy, erase_module
-from vsutil import scale_value
+from stgfunc import source
+from vstools import erase_module, scale_value, set_output, vs
 
-core = vs.core
+from vspyplugin import PyPluginNumpy
 
 
 @jit("int32(int32, int32)", nopython=True, nogil=True)  # type: ignore

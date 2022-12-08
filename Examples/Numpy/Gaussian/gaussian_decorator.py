@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import vapoursynth as vs
 from scipy.ndimage import gaussian_filter
-from stgfunc import set_output, source
-from vspyplugin import FilterMode, PyPluginNumpy
+from stgfunc import source
+from vstools import set_output, vs
 
-core = vs.core
+from vspyplugin import FilterMode, PyPluginNumpy
 
 
 def gaussian(clip: vs.VideoNode, sigma: float | tuple[float, float] = 0.5) -> vs.VideoNode:
