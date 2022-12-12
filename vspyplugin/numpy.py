@@ -296,3 +296,6 @@ except ModuleNotFoundError as e:
 
     class PyPluginNumpy(PyPluginNumpyBase[FD_T]):  # type: ignore
         ...
+
+    if not TYPE_CHECKING:
+        NDT_T = TypeVar('NDT_T', bound=Any)
