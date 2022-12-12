@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from string import Template
 from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar, cast
 
-import vapoursynth as vs
-from vstools import CustomRuntimeError, get_lowest_value, get_neutral_value, get_peak_value, get_resolutions
+from vstools import CustomRuntimeError, get_lowest_value, get_neutral_value, get_peak_value, get_resolutions, vs
 
 from .backends import PyBackend
 from .base import PyPluginOptions, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
@@ -236,15 +236,27 @@ try:
             if not cuda_path.suffix:
                 cuda_path = cuda_path.with_suffix('.cu')
 
-            cuda_path = cuda_path.absolute().resolve()
+            paths = [
+                cuda_path, cuda_path.absolute().resolve(),
+                *(
+                    Path(inspect.getfile(cls)).parent / cuda_path.name
+                    for cls in self.__class__.mro()
+                    if cls.__module__.strip('_') != 'builtins'
+                )
+            ]
 
             cuda_kernel_code: str | None = None
-            if cuda_path.exists():
-                cuda_kernel_code = cuda_path.read_text()
-            elif cuda_path.suffix == '.cu' or len(str(self_cuda_path)) < 24:
-                raise CustomRuntimeError('Cuda Kernel file not found!', self.__class__)
-            elif isinstance(self_cuda_path, str):
-                cuda_kernel_code = self_cuda_path
+
+            for path in paths:
+                if path.exists():
+                    cuda_kernel_code = path.read_text()
+                    break
+
+            if cuda_kernel_code is None:
+                if cuda_path.suffix == '.cu' or len(str(self_cuda_path)) < 24:
+                    raise CustomRuntimeError('Cuda Kernel file not found!', self.__class__)
+                elif isinstance(self_cuda_path, str):
+                    cuda_kernel_code = self_cuda_path
 
             if cuda_kernel_code:
                 cuda_kernel_code = cuda_kernel_code.strip()

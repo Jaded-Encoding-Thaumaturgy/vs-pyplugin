@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
 
@@ -86,8 +87,19 @@ try:
             if not cython_path.suffix:
                 cython_path = cython_path.with_suffix('.pyx')
 
-            cython_path = cython_path.absolute().resolve()
-            if not cython_path.exists():
+            paths = [
+                cython_path, cython_path.absolute().resolve(),
+                *(
+                    Path(inspect.getfile(cls)).parent / cython_path.name
+                    for cls in self.__class__.mro()
+                    if cls.__module__.strip('_') != 'builtins'
+                )
+            ]
+
+            for cython_path in paths:
+                if cython_path.exists():
+                    break
+            else:
                 raise CustomRuntimeError('Cython code not found!', self.__class__)
 
             if not cython_path.is_file():
