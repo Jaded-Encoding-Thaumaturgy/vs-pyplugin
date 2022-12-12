@@ -33,12 +33,19 @@ class PyBackend(CustomIntEnum):
         return next((e for backend, e in _unavailable_backends if backend is self), None)
 
     @property
-    def dependencies(self) -> dict[str, str] | None:
-        return _dependecies_backends.get(self, None)
+    def dependencies(self) -> dict[str, str]:
+        deps = _dependecies_backends.get(self, {})
 
-    def set_dependencies(self, deps: dict[str, str]) -> None:
+        for back in _dependecies_back_back.get(self, ()):
+            deps |= back.dependencies
+
+        return deps
+
+    def set_dependencies(self, deps: dict[str, str], *backend_deps: PyBackend) -> None:
         _dependecies_backends[self] = {**deps}
+        _dependecies_back_back[self] = backend_deps
 
 
 _unavailable_backends = set[tuple[PyBackend, ModuleNotFoundError | None]]()
 _dependecies_backends = dict[PyBackend, dict[str, str]]()
+_dependecies_back_back = dict[PyBackend, tuple[PyBackend, ...]]()
