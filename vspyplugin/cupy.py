@@ -15,10 +15,7 @@ __all__ = [
 ]
 
 this_backend = PyBackend.CUPY
-this_backend.set_dependencies({
-    'numpy': '1.22.4',
-    'cupy': '11.0.0'
-})
+this_backend.set_dependencies({'cupy': '11.0.0'}, PyBackend.NUMPY)
 
 
 try:

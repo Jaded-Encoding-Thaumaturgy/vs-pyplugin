@@ -20,10 +20,7 @@ __all__ = [
 ]
 
 this_backend = PyBackend.CUDA
-this_backend.set_dependencies({
-    'numpy': '1.22.4',
-    'cupy': '11.0.0'
-})
+this_backend.set_dependencies({}, PyBackend.CUPY)
 
 T = TypeVar('T')
 
