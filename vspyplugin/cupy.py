@@ -19,6 +19,9 @@ this_backend.set_dependencies({'cupy': '11.0.0'}, PyBackend.NUMPY)
 
 
 try:
+    if PyBackend.is_cli:
+        raise ModuleNotFoundError
+
     from cupy_backends.cuda.api import runtime  # type: ignore
 
     import cupy as cp

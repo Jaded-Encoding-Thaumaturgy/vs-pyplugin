@@ -59,6 +59,9 @@ class PyPluginCudaOptions(PyPluginOptions):
 
 
 try:
+    if PyBackend.is_cli:
+        raise ModuleNotFoundError
+
     from cupy import RawKernel
     from numpy.typing import NDArray
 

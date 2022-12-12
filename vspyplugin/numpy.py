@@ -19,6 +19,9 @@ this_backend = PyBackend.NUMPY
 this_backend.set_dependencies({'numpy': '1.23.5'}, PyBackend.NONE)
 
 try:
+    if PyBackend.is_cli:
+        raise ModuleNotFoundError
+
     from ctypes import POINTER
     from ctypes import _cast as ctypes_cast  # type: ignore
     from ctypes import _Pointer as PointerType

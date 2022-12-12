@@ -21,6 +21,9 @@ uniqey = 'cython'
 
 
 try:
+    if PyBackend.is_cli:
+        raise ModuleNotFoundError
+
     from Cython.Build import cythonize  # noqa: F401
 
     class CythonKernelFunction:
