@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from vstools import CustomIntEnum
+import os
+
+from vstools import CustomIntEnum, classproperty
 
 __all__ = [
     'PyBackend'
 ]
 
 
-class PyBackendBase:
-    is_cli: bool = False
-
-
-class PyBackend(PyBackendBase, CustomIntEnum):  # type: ignore
+class PyBackend(CustomIntEnum):
     NONE = -1
     NUMPY = 0
     CUPY = 1
@@ -48,6 +46,13 @@ class PyBackend(PyBackendBase, CustomIntEnum):  # type: ignore
     def set_dependencies(self, deps: dict[str, str], *backend_deps: PyBackend) -> None:
         _dependecies_backends[self] = {**deps}
         _dependecies_back_back[self] = backend_deps
+
+    @classproperty
+    def is_cli(cls) -> bool:
+        try:
+            return os.environ['vspyplugin_is_cli'] == 'True'
+        except KeyError:
+            return False
 
 
 _unavailable_backends = set[tuple[PyBackend, ModuleNotFoundError | None]]()
