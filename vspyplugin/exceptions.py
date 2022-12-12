@@ -12,7 +12,7 @@ class UnavailableBackend(CustomValueError):
 
     def __init__(
         self, backend: PyBackend, func: FuncExceptT | None = None,
-        message: str = 'This plugin is built on top of the {backend.name} backend which is unavailable!',
+        message: str = 'This plugin is built on top of the {backend} backend which is unavailable!',
         **kwargs: Any
     ) -> None:
         super().__init__(message, func, backend=backend, **kwargs)

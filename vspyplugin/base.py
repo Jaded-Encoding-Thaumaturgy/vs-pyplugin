@@ -362,8 +362,7 @@ class PyPluginUnavailableBackendBase(PyPluginBase[FD_T, DT_T]):
     @copy_signature(PyPlugin.__init__)
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         from .exceptions import UnavailableBackend
-
-        raise UnavailableBackend(self.backend, self)
+        raise UnavailableBackend(self.backend, self.__class__)
 
 
 class PyPluginUnavailableBackend(PyPluginUnavailableBackendBase[FD_T, Any]):
