@@ -23,7 +23,7 @@ this_backend.set_dependencies({
 try:
     from ctypes import POINTER
     from ctypes import _cast as ctypes_cast  # type: ignore
-    from ctypes import _Pointer as PointerType  # type: ignore
+    from ctypes import _Pointer as PointerType
     from ctypes import memmove
 
     import numpy as np
@@ -250,7 +250,6 @@ try:
                 else:
                     if self.ref_clip.format.num_planes == 1:
                         if self.process_SingleSrcIPP:
-                            assert self.process_SingleSrcIPP
                             func_SingleSrcIPP = self.process_SingleSrcIPP
 
                             def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:

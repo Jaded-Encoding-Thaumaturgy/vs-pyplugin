@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial
 from itertools import count
-from typing import TYPE_CHECKING, Any, Callable, Generic, Type, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Generic, Type, cast, overload, ClassVar
 
 import vapoursynth as vs
 from vstools import CustomIndexError, CustomTypeError, CustomValueError, InvalidSubsamplingError, copy_signature
@@ -77,7 +77,7 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
             'filter_data', 'clips', 'ref_clip', 'fd', '_input_per_plane'
         )
 
-    backend: PyBackend = PyBackend.NONE
+    backend: ClassVar[PyBackend] = PyBackend.NONE
     filter_data: Type[FD_T]
     filter_mode: FilterMode
 
@@ -326,7 +326,6 @@ class PyPlugin(PyPluginBase[FD_T, memoryview]):
             else:
                 if self.ref_clip.format.num_planes == 1:
                     if self.process_SingleSrcIPP:
-                        assert self.process_SingleSrcIPP
                         func_SingleSrcIPP = self.process_SingleSrcIPP
 
                         def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
