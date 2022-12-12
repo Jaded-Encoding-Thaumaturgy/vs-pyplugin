@@ -41,7 +41,7 @@ try:
         from numpy.core.numeric import concatenate
 
     _cache_dtypes = dict[int, dtype[Any]]()
-    _cache_arr_dtypes = dict[int, type[PointerType]]()
+    _cache_arr_dtypes = dict[int, type[PointerType]]()  # type: ignore
 
     class PyPluginNumpyBase(PyPluginBase[FD_T, NDT_T]):
         backend = this_backend
@@ -64,7 +64,7 @@ try:
         @classmethod
         def get_arr_ctype_from_clip(
             cls, clip: vs.VideoNode | vs.VideoFrame, plane: int, strict: bool = False
-        ) -> type[PointerType]:
+        ) -> type[PointerType]:  # type: ignore
             key = hash((clip.format.id, clip.width, clip.height, plane))  # type: ignore
 
             if key not in _cache_arr_dtypes:
@@ -85,7 +85,7 @@ try:
 
         @classmethod
         @lru_cache
-        def get_arr_ctype(cls, width: int, height: int, data_type: dtype[Any]) -> type[PointerType]:
+        def get_arr_ctype(cls, width: int, height: int, data_type: dtype[Any]) -> type[PointerType]:  # type: ignore
             ctypes_type = _scalar_type_map[data_type.newbyteorder('=')]
 
             cast_type = POINTER(ctypes_type)
