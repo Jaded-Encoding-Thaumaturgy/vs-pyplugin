@@ -7,7 +7,11 @@ __all__ = [
 ]
 
 
-class PyBackend(CustomIntEnum):
+class PyBackendBase:
+    is_cli: bool = False
+
+
+class PyBackend(PyBackendBase, CustomIntEnum):  # type: ignore
     NONE = -1
     NUMPY = 0
     CUPY = 1
