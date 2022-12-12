@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar, cast
 from vstools import CustomRuntimeError, get_lowest_value, get_neutral_value, get_peak_value, get_resolutions, vs
 
 from .backends import PyBackend
-from .base import PyPluginOptions, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
+from .base import PyPluginOptions, PyPluginUnavailableBackendBase
 from .types import DT_T, FD_T, FilterMode
 from .utils import get_c_dtype_long
 
@@ -356,5 +356,5 @@ except ModuleNotFoundError as e:
     class PyPluginCudaBase(PyPluginUnavailableBackendBase[FD_T, DT_T]):  # type: ignore
         backend = this_backend
 
-    class PyPluginCuda(PyPluginUnavailableBackend[FD_T]):  # type: ignore
+    class PyPluginCuda(PyPluginCudaBase[FD_T]):  # type: ignore
         ...

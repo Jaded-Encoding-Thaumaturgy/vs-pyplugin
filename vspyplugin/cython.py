@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Sequence
 from vstools import CustomNotImplementedError, CustomRuntimeError, copy_signature
 
 from .backends import PyBackend
-from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
+from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackendBase
 from .types import DT_T, FD_T
 
 __all__ = [
@@ -203,5 +203,5 @@ except ModuleNotFoundError as e:
     class PyPluginCythonBase(PyPluginUnavailableBackendBase[FD_T, DT_T]):  # type: ignore
         backend = this_backend
 
-    class PyPluginCython(PyPluginUnavailableBackend[FD_T]):  # type: ignore
+    class PyPluginCython(PyPluginCythonBase[FD_T]):  # type: ignore
         ...

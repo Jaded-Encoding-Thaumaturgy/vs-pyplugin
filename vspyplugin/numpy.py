@@ -7,7 +7,7 @@ import vapoursynth as vs
 from vstools import copy_signature, get_resolutions
 
 from .backends import PyBackend
-from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackend, PyPluginUnavailableBackendBase
+from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackendBase
 from .types import DT_T, FD_T, OutputFunc_T
 
 __all__ = [
@@ -293,5 +293,5 @@ except ModuleNotFoundError as e:
     class PyPluginNumpyBase(PyPluginUnavailableBackendBase[FD_T, DT_T]):  # type: ignore
         backend = this_backend
 
-    class PyPluginNumpy(PyPluginUnavailableBackend[FD_T]):  # type: ignore
+    class PyPluginNumpy(PyPluginNumpyBase[FD_T]):  # type: ignore
         ...
