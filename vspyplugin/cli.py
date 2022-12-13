@@ -4,7 +4,9 @@ import logging
 import os
 import sys
 from argparse import ArgumentParser
-from subprocess import check_call, run
+from subprocess import check_call
+
+from vstools import get_nvidia_version
 
 os.environ['vspyplugin_is_cli'] = 'True'
 
@@ -56,30 +58,23 @@ def main() -> None:
         for module, version in backend.dependencies.items():
             if module == 'cupy':
                 if not args.cuda:
-                    nvcc = run(['nvcc', '--version'], capture_output=True)
-
-                    if nvcc.returncode != 0:
-                        smi = run(['nvidia-smi', '-q'], capture_output=True)
-
-                        if smi.returncode != 0:
-                            color, message = 31, (
-                                f'There was an error retrieving cuda version for {backend.name}!'
-                                '\nPlease specify it with "--cuda xx.y"!'
-                            )
-                        else:
-                            cuda_version = smi.stdout.splitlines()[5].decode().split(':')[-1].strip()
-                    else:
-                        cuda_version = nvcc.stdout.splitlines()[3].decode().split(
-                            ',')[-2].replace('release', '').strip()
+                    cuda_version = get_nvidia_version()
                 else:
-                    cuda_version = str(args.cuda)
+                    cuda_version = tuple(int(x) for x in args.cuda.split('.', 2))  # type: ignore
 
-                fver = float(cuda_version)
+                if cuda_version is None:
+                    color, message = 31, (
+                        f'There was an error retrieving cuda version for {backend.name}!'
+                        '\nPlease specify it with "--cuda xx.y"!'
+                    )
+                    break
+
+                fver = cuda_version[0] + cuda_version[1] / 10
 
                 if fver >= 11.2:
                     module = 'cupy-cuda11x'
                 elif fver >= 10.2:
-                    module = f"cupy-cuda{cuda_version.replace('.', '')}"
+                    module = f"cupy-cuda{cuda_version[0]}{cuda_version[1]}"
                 else:
                     color, message = 31, f'There cuda version for {backend.name} is unsupported! ({fver})'
                     break
