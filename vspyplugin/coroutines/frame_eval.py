@@ -4,7 +4,7 @@ This module and original idea is by cid-chan (Sarah <cid@cid-chan.moe>)
 
 from __future__ import annotations
 
-from typing import Callable, Literal, overload
+from typing import Callable, Literal, TypeAlias, overload, Union
 
 import vapoursynth as vs
 from vstools import CustomValueError
@@ -19,9 +19,13 @@ __all__ = [
 core = vs.core
 
 
-FE_N_FUNC = Callable[[int], vs.VideoNode]
-FE_F_FUNC = Callable[[int, vs.VideoFrame], vs.VideoNode]
-FE_L_FUNC = Callable[[int, list[vs.VideoFrame]], vs.VideoNode]
+FE_N_FUNC: TypeAlias = Union[Callable[[int], vs.VideoNode], Callable[[int], vs.VideoFrame]]
+FE_F_FUNC: TypeAlias = Union[
+    Callable[[int, vs.VideoFrame], vs.VideoNode], Callable[[int, vs.VideoFrame], vs.VideoFrame]
+]
+FE_L_FUNC: TypeAlias = Union[
+    Callable[[int, list[vs.VideoFrame]], vs.VideoNode], Callable[[int, list[vs.VideoFrame]], vs.VideoFrame]
+]
 
 FEA_FUNC = Callable[[int], AnyCoroutine[None, vs.VideoFrame | vs.VideoNode]]
 
@@ -73,31 +77,53 @@ def frame_eval(  # type: ignore
     if frame and not frame_clips:
         frame_clips = base_clip
 
+    base_clip = base_clip.std.BlankClip(keep=True)
+
     def _decorator(func: FE_N_FUNC | FE_F_FUNC | FE_L_FUNC) -> vs.VideoNode:
         args = func.__annotations__
         keys = list(filter(lambda x: x not in {'self', 'return'}, args.keys()))
 
+        rtype = args.get('return', vs.VideoNode)
+
+        if isinstance(rtype, type):
+            rtype = rtype.__name__
+
         n_args = len(keys)
+        ret_frame = str(rtype) == 'VideoFrame'
 
         if n_args == 1:
-            if 'n' in keys:
-                _inner = func
-            else:
+            if ret_frame:
                 def _inner(n: int) -> vs.VideoNode:
-                    return func(n)  # type: ignore
+                    return base_clip.std.ModifyFrame(base_clip, lambda n, f: func(n))  # type: ignore
+            else:
+                if 'n' in keys:
+                    _inner = func  # type: ignore
+                else:
+                    def _inner(n: int) -> vs.VideoNode:
+                        return func(n)  # type: ignore
         elif n_args == 2:
             if isinstance(frame_clips, list) and len(frame_clips) < 2:
-                def _inner(n: int, f: vs.VideoFrame) -> vs.VideoNode:
-                    return func(n, [f])  # type: ignore
-            else:
-                if 'n' in keys and 'f' in keys:
-                    _inner = func
+                if ret_frame:
+                    def _inner(n: int) -> vs.VideoNode:
+                        return base_clip.std.ModifyFrame(frame_clips, lambda n, f: func(n, [f]))  # type: ignore
                 else:
-                    def _inner(n: int, f: list[vs.VideoFrame]) -> vs.VideoNode:
-                        return func(n, f)  # type: ignore
+                    def _inner(n: int, f: vs.VideoFrame) -> vs.VideoNode:  # type: ignore
+                        return func(n, [f])  # type: ignore
+            else:
+                if ret_frame:
+                    def _inner(n: int) -> vs.VideoNode:
+                        return base_clip.std.ModifyFrame(frame_clips, lambda n, f: func(n, f))  # type: ignore
+                else:
+                    if 'n' in keys and 'f' in keys:
+                        _inner = func  # type: ignore
+                    else:
+                        def _inner(n: int, f: list[vs.VideoFrame]) -> vs.VideoNode:  # type: ignore
+                            return func(n, f)  # type: ignore
         else:
             raise CustomValueError('Function must have 1-2 arguments!', frame_eval)
 
+        if ret_frame:
+            return base_clip.std.FrameEval(_inner)
         return base_clip.std.FrameEval(_inner, frame_clips, base_clip)
 
     return _decorator
