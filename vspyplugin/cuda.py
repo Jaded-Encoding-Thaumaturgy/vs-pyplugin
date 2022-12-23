@@ -76,33 +76,32 @@ try:
             ...
 
     class CudaKernelFunctionPlanes(CudaKernelFunction[NDT_T]):
-        __slots__ = ('function', 'planes_function')
+        def __new__(
+            cls, function: CudaKernelFunction[NDT_T], planes_functions: list[CudaKernelFunction[NDT_T]] | None = None
+        ) -> CudaKernelFunctionPlanes[NDT_T]:
+            class func_inner(dict[int | None, CudaKernelFunction[NDT_T]]):
+                __call__ = lambda _, *args, **kwargs: function(*args, **kwargs)  # noqa: E731
 
-        def __init__(
-            self, function: CudaKernelFunction[NDT_T], planes_functions: list[CudaKernelFunction[NDT_T]] | None = None
-        ) -> None:
-            self.function = function
             if planes_functions is None:
-                self.planes_functions = [function]
-            else:
-                self.planes_functions = planes_functions
+                planes_functions = [function]
+            planes_functions += planes_functions[-1:] * (3 - len(planes_functions))
 
-            self.planes_functions += self.planes_functions[-1:] * (3 - len(self.planes_functions))
+            return func_inner(  # type: ignore
+                {idx: func for idx, func in enumerate(planes_functions)} | {None: function}
+            )
 
-        if not TYPE_CHECKING:
-            def __call__(self, *args: Any, **kwargs: Any) -> Any:
-                return self.function(*args, **kwargs)
-
-        def __getitem__(self, plane: int | None) -> CudaKernelFunction[NDT_T]:
-            if plane is None:
-                return self.function
-
-            return self.planes_functions[plane]
+        if TYPE_CHECKING:
+            def __getitem__(self, plane: int | None, /) -> CudaKernelFunction[NDT_T]:
+                ...
 
     class CudaKernelFunctions(Generic[NDT_T]):
-        def __init__(self, **kwargs: CudaKernelFunctionPlanes[NDT_T]) -> None:
+        def __new__(cls, **kwargs: CudaKernelFunctionPlanes[NDT_T]) -> CudaKernelFunctions[NDT_T]:
+            self = type('kernel_inner', (object, ), dict(__slots__=list(kwargs.keys())))
+
             for key, func in kwargs.items():
                 setattr(self, key, func)
+
+            return self  # type: ignore
 
         if TYPE_CHECKING:
             def __getattribute__(self, __name: str) -> CudaKernelFunctionPlanes[NDT_T]:
