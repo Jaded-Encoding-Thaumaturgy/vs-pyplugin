@@ -27,7 +27,7 @@ FE_L_FUNC: TypeAlias = Union[
     Callable[[int, list[vs.VideoFrame]], vs.VideoNode], Callable[[int, list[vs.VideoFrame]], vs.VideoFrame]
 ]
 
-FEA_FUNC = Callable[[int], AnyCoroutine[None, vs.VideoFrame | vs.VideoNode]]
+FEA_FUNC = Callable[[int], AnyCoroutine[None, Union[vs.VideoFrame, vs.VideoNode]]]
 
 
 def frame_eval_async(base_clip: vs.VideoNode) -> Callable[[FEA_FUNC], vs.VideoNode]:
