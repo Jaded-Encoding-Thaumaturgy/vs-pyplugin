@@ -325,7 +325,7 @@ try:
                     kernel = _cache_modules_funcs[module_key].get_function(name)
 
                     _cache_kernel_funcs[kernel_key] = _wrap_kernel_function(
-                        *(tuple(reversed(x)) for x in (def_kernel_size, block_sizes)), def_shared_mem, kernel
+                        def_kernel_size, block_sizes, def_shared_mem, kernel
                     )
 
                 return _cache_kernel_funcs[kernel_key]
