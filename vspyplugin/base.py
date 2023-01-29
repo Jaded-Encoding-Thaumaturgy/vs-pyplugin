@@ -77,6 +77,7 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
             'filter_data', 'clips', 'ref_clip', 'fd', '_input_per_plane'
         )
 
+    debug: bool = False
     backend: ClassVar[PyBackend] = PyBackend.NONE
     filter_data: Type[FD_T]
     filter_mode: FilterMode

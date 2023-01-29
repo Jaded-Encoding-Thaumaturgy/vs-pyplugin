@@ -285,7 +285,8 @@ try:
                 backend=self.options.backend,
                 translate_cucomplex=self.options.translate_cucomplex,
                 enable_cooperative_groups=self.options.enable_cooperative_groups,
-                jitify=self.options.jitify
+                jitify=self.options.jitify, name_expressions=None,
+                log_stream=sys.stdout if self.debug else None
             )
 
             _cache_kernel_funcs = dict[tuple[int, str], CudaKernelFunction[NDT_T]]()
