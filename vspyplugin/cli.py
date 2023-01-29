@@ -72,7 +72,7 @@ def main() -> None:
                 fver = cuda_version[0] + cuda_version[1] / 10
 
                 if fver >= 11.2:
-                    module = 'cupy-cuda11x'
+                    module = f'cupy-cuda{cuda_version[0]}x'
                 elif fver >= 10.2:
                     module = f"cupy-cuda{cuda_version[0]}{cuda_version[1]}"
                 else:
