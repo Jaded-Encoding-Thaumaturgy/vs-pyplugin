@@ -274,6 +274,8 @@ try:
                     block_size: tuple[int, ...] = def_block_size,
                     shared_mem: int = def_shared_mem
                 ) -> Any:
+                    print(kernel_size, block_size, args[0].shape)
+
                     return function(kernel_size, block_size, args, shared_mem=shared_mem)
 
                 return cast(CudaKernelFunction[NDT_T], _inner_function)
@@ -326,7 +328,7 @@ try:
                     kernel.compile()
 
                     _cache_kernel_funcs[kernel_key] = _wrap_kernel_function(
-                        def_kernel_size, block_sizes, def_shared_mem, kernel
+                        *(tuple(reversed(x)) for x in (def_kernel_size, block_sizes)), def_shared_mem, kernel
                     )
 
                 return _cache_kernel_funcs[kernel_key]
