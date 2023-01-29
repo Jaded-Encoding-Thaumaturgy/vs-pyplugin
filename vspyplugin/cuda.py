@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from string import Template
+import sys
 from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar, cast
 
 from vstools import CustomRuntimeError, get_lowest_value, get_neutral_value, get_peak_value, get_resolutions, vs
@@ -54,15 +55,13 @@ class PyPluginCudaOptions(PyPluginOptions):
     translate_cucomplex: bool = False
     enable_cooperative_groups: bool = False
     jitify: bool = False
-    max_dynamic_shared_size_bytes: int | None = None
-    preferred_shared_memory_carveout: int | None = None
 
 
 try:
     if PyBackend.is_cli:
         raise ModuleNotFoundError
 
-    from cupy import RawKernel
+    import cupy
     from numpy.typing import NDArray
 
     from .cupy import PyPluginCupy, PyPluginCupyBase
@@ -274,8 +273,6 @@ try:
                     block_size: tuple[int, ...] = def_block_size,
                     shared_mem: int = def_shared_mem
                 ) -> Any:
-                    print(kernel_size, block_size, args[0].shape)
-
                     return function(kernel_size, block_size, args, shared_mem=shared_mem)
 
                 return cast(CudaKernelFunction[NDT_T], _inner_function)
@@ -289,6 +286,7 @@ try:
                 log_stream=sys.stdout if self.debug else None
             )
 
+            _cache_modules_funcs = dict[int, Any]()
             _cache_kernel_funcs = dict[tuple[int, str], CudaKernelFunction[NDT_T]]()
 
             def _get_kernel_func(name: str, plane: int, width: int, height: int) -> CudaKernelFunction[NDT_T]:
@@ -315,18 +313,16 @@ try:
 
                 sub_kernel_code = Template(cuda_kernel_code).substitute(kernel_args)
 
-                kernel_key = hash(sub_kernel_code), name
+                module_key = hash(sub_kernel_code)
+                kernel_key = module_key, name
+
+                if module_key not in _cache_modules_funcs:
+                    _cache_modules_funcs[module_key] = cupy._cupy._core.raw._get_raw_module(
+                        sub_kernel_code, None, **raw_kernel_kwargs
+                    )
 
                 if kernel_key not in _cache_kernel_funcs:
-                    kernel = RawKernel(code=sub_kernel_code, name=name, **raw_kernel_kwargs)
-
-                    if self.options.max_dynamic_shared_size_bytes is not None:
-                        kernel.max_dynamic_shared_size_bytes = self.options.max_dynamic_shared_size_bytes
-
-                    if self.options.preferred_shared_memory_carveout is not None:
-                        kernel.preferred_shared_memory_carveout = self.options.preferred_shared_memory_carveout
-
-                    kernel.compile()
+                    kernel = _cache_modules_funcs[module_key].get_function(name)
 
                     _cache_kernel_funcs[kernel_key] = _wrap_kernel_function(
                         *(tuple(reversed(x)) for x in (def_kernel_size, block_sizes)), def_shared_mem, kernel
