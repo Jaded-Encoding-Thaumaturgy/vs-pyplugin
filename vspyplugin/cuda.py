@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import inspect
-from dataclasses import dataclass
+import sys
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from string import Template
-import sys
 from typing import TYPE_CHECKING, Any, Generic, Literal, Sequence, TypeVar, cast
 
 from vstools import CustomRuntimeError, get_lowest_value, get_neutral_value, get_peak_value, get_resolutions, vs
@@ -50,7 +50,7 @@ class CudaCompileFlags:
 
 @dataclass
 class PyPluginCudaOptions(PyPluginOptions):
-    compile_flags: CudaCompileFlags = CudaCompileFlags()
+    compile_flags: CudaCompileFlags = field(default_factory=lambda: CudaCompileFlags())
     backend: Literal['nvrtc', 'nvcc'] = 'nvrtc'
     translate_cucomplex: bool = False
     enable_cooperative_groups: bool = False
