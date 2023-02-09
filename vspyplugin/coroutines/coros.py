@@ -136,7 +136,7 @@ def coro2node(
             value = e.value
 
             if isinstance(value, vs.VideoNode):
-                return value
+                return value  # type: ignore
 
             if isinstance(value, vs.VideoFrame):
                 return _wrap_frame(value)

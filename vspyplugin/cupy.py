@@ -22,7 +22,7 @@ try:
     if PyBackend.is_cli:
         raise ModuleNotFoundError
 
-    from cupy_backends.cuda.api import runtime  # type: ignore
+    from cupy_backends.cuda.api import runtime
 
     import cupy as cp
     from cupy import cuda
