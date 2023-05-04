@@ -231,7 +231,7 @@ class PyPluginBase(Generic[FD_T, DT_T], PyPluginBackendBase[DT_T]):
             raise CustomTypeError(f'{self.__class__.__name__}: You must type hint the function!', self.__class__)
 
         if annotations - this_args:
-            raise CustomTypeError(f'{self.__class__.__name__}: Unkown arguments specified!', self.__class__)
+            raise CustomTypeError(f'{self.__class__.__name__}: Unknown arguments specified!', self.__class__)
 
         miss_args = this_args - annotations
 
