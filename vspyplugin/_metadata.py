@@ -1,6 +1,6 @@
 """Package for simplifying writing VapourSynth "plugins" in python."""
 
-__version__ = '1.3.1'
+__version__ = '1.3.2'
 
 __author__ = 'Setsugen no ao <setsugen@setsugen.dev>'
 __maintainer__ = __author__
