@@ -348,7 +348,7 @@ try:
         ...
 
     this_backend.set_available(True)
-except ModuleNotFoundError as e:
+except (ImportError, ModuleNotFoundError) as e:
     this_backend.set_available(False, e)
 
     class PyPluginCudaBase(PyPluginUnavailableBackendBase[FD_T, DT_T]):  # type: ignore

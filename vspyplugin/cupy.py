@@ -266,7 +266,7 @@ try:
             return output_func
 
     this_backend.set_available(True)
-except ModuleNotFoundError as e:
+except (ImportError, ModuleNotFoundError) as e:
     this_backend.set_available(False, e)
 
     class PyPluginCupyBase(PyPluginUnavailableBackendBase[FD_T, DT_T]):  # type: ignore
