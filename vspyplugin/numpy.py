@@ -47,8 +47,8 @@ try:
         backend = this_backend
 
         @classmethod
-        def to_host(cls, f: vs.VideoFrame, plane: int, strict: bool = False) -> NDT_T:
-            ptr = f.get_read_ptr(plane)
+        def to_host(cls, f: vs.VideoFrame, plane: int, strict: bool = False, write: bool = False) -> NDT_T:
+            ptr = f.get_write_ptr(plane) if write else f.get_read_ptr(plane)
             ctype = cls.get_arr_ctype_from_clip(f, plane, strict)
 
             return asarray(ctypes_cast(ptr, ptr, ctype).contents)  # type: ignore
@@ -207,7 +207,7 @@ try:
                                 for idx, frame in enumerate(f)
                             ]
 
-                            func_MultiSrcIPP(inputs_data, self.to_host(fout, p), fout, p, n)
+                            func_MultiSrcIPP(inputs_data, self.to_host(fout, p, write=True), fout, p, n)
 
                         return fout
                 else:
@@ -219,7 +219,7 @@ try:
                             fout = f.copy()
 
                             for p in range(fout.format.num_planes):
-                                func_SingleSrcIPP(self.to_host(f, p), self.to_host(fout, p), fout, p, n)
+                                func_SingleSrcIPP(self.to_host(f, p), self.to_host(fout, p, write=True), fout, p, n)
 
                             return fout
                     else:
@@ -229,7 +229,7 @@ try:
                             pre_stacked_clip = _stack_frame(f, 0)
 
                             for p in range(fout.format.num_planes):
-                                func_SingleSrcIPP(pre_stacked_clip, self.to_host(fout, p), fout, p, n)
+                                func_SingleSrcIPP(pre_stacked_clip, self.to_host(fout, p, write=True), fout, p, n)
 
                             return fout
             else:
@@ -256,7 +256,7 @@ try:
                             def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
                                 fout = f.copy()
 
-                                func_SingleSrcIPP(self.to_host(f, 0), self.to_host(fout, 0), fout, 0, n)
+                                func_SingleSrcIPP(self.to_host(f, 0), self.to_host(fout, 0, write=True), fout, 0, n)
 
                                 return fout
                         else:
@@ -266,7 +266,7 @@ try:
                             def output_func(f: vs.VideoFrame, n: int) -> vs.VideoFrame:
                                 fout = f.copy()
 
-                                func_SingleSrcIPF(self.to_host(f, 0), [self.to_host(fout, 0)], fout, n)
+                                func_SingleSrcIPF(self.to_host(f, 0), [self.to_host(fout, 0, write=True)], fout, n)
 
                                 return fout
                     else:
