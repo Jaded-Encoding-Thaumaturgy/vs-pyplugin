@@ -4,7 +4,7 @@ import inspect
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
 
-from vstools import CustomNotImplementedError, CustomRuntimeError, copy_signature
+from vstools import CustomNotImplementedError, CustomRuntimeError, PackageStorage, copy_signature
 
 from .backends import PyBackend
 from .base import PyPlugin, PyPluginBase, PyPluginUnavailableBackendBase
@@ -109,11 +109,11 @@ try:
             if cython_path.suffix != '.pyx':
                 raise CustomRuntimeError('Cython code must be a .pyx file!', self.__class__)
 
-            cython_build_dir = cython_path.parent / '.vspyplugin'
-            curr_md5 = str(md5(cython_path.read_bytes()).digest())
+            cython_storage_dir = PackageStorage(cython_path.parent)
+            cython_storage_dir.ensure_folder()
 
-            if not cython_build_dir.exists():
-                makedirs(cython_build_dir, 0o777, True)
+            cython_build_dir = cython_storage_dir.folder
+            curr_md5 = str(md5(cython_path.read_bytes()).digest())
 
             module_path: Path | None = None
             curr_files = listdir(cython_build_dir)
