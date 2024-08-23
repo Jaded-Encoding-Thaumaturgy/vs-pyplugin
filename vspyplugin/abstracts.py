@@ -5,9 +5,9 @@ from functools import partial, wraps
 from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, Mapping, TypeAlias, Union, cast, overload
 
 import vapoursynth as vs
-from vstools import F_VD, SupportsIndexing
+from vstools import F_VD, SupportsIndexing, PassthroughC
 
-from .types import DT_T, FD_T, PassthroughC
+from .types import DT_T, FD_T
 
 __all__ = [
     'ProcessMode',
