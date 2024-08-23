@@ -6,6 +6,10 @@ from vstools import CustomValueError, FuncExceptT
 
 from .backends import PyBackend
 
+__all__ = [
+    'UnavailableBackend'
+]
+
 
 class UnavailableBackend(CustomValueError):
     """Raised when trying to initialize an unavailable backend"""

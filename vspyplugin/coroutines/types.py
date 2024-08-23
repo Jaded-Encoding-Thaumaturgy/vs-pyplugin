@@ -10,6 +10,12 @@ import vapoursynth as vs
 from vstools import T0, CustomNotImplementedError, T
 
 
+__all__ = [
+    'FrameRequest',
+    'AnyCoroutine'
+]
+
+
 class FrameRequest:
     def build_frame_eval(
         self, clip: vs.VideoNode, frame_no: int, continuation: Callable[[Any], vs.VideoNode]
