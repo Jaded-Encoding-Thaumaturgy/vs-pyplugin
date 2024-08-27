@@ -72,7 +72,10 @@ try:
             assert self.ref_clip.format
 
             if not hasattr(self, 'cython_kernel'):
-                raise CustomRuntimeError('You\'re missing cython_kernel!', self.__class__)
+                if 'cython_kernel' not in kwargs:
+                    raise CustomRuntimeError('You\'re missing cython_kernel!', self.__class__)
+
+                self.cython_kernel = kwargs.pop('cython_kernel')
 
             if isinstance(self.cython_kernel, tuple):
                 cython_path, cython_functions = self.cython_kernel
