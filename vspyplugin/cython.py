@@ -91,8 +91,14 @@ try:
             if not cython_path.suffix:
                 cython_path = cython_path.with_suffix('.pyx')
 
+            inspect_paths = []
+
+            if stack := inspect.stack():
+                if len(stack) > 1:
+                    inspect_paths = [Path(stack[1].filename).parent / cython_path.name]
+
             paths = [
-                cython_path, cython_path.absolute().resolve(),
+                cython_path, cython_path.absolute().resolve(), *inspect_paths,
                 *(
                     Path(inspect.getfile(cls)).parent / cython_path.name
                     for cls in self.__class__.mro()
