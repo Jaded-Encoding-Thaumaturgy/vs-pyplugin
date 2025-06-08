@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from scipy.ndimage import gaussian_filter
-from stgfunc import source
+from vssource import source
 from vstools import set_output, vs
 
 from vspyplugin import ProcessMode, PyPluginNumpy
@@ -32,7 +32,7 @@ def gaussian(clip: vs.VideoNode, sigma: float | tuple[float, float] = 0.5) -> vs
 
 # This is unoptimized as hell, but it's just for testing
 
-src = source(r"E:\Desktop\Encoding Sources\[BDMV] Takagi-San 3\TAKAGISAN3_1\BDMV\STREAM\00003.m2ts", 8, matrix_prop=1)
+src = source(r"E:\Desktop\Encoding Sources\[BDMV] Takagi-San 3\TAKAGISAN3_1\BDMV\STREAM\00003.m2ts", bits=8)
 src = src.std.ShufflePlanes(0, vs.GRAY)
 # src = src.resize.Bicubic(format=vs.YUV444P8)
 

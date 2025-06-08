@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from stgfunc import source
+from vssource import source
 from vstools import set_output, vs
 
 from vspyplugin import FilterMode, ProcessMode, PyPluginCuda
@@ -57,7 +57,7 @@ def bilateral(
 # Test - Compare with the original c++ plugin this is based off
 # From my benchmarks, it's 2x faster with real numbers, just 6% in the vacuum (BlankClip, with zeroes)
 
-src = source(r"E:\Desktop\Encoding Sources\[BDMV] Takagi-San 3\TAKAGISAN3_1\BDMV\STREAM\00003.m2ts", 8, matrix_prop=1)
+src = source(r"E:\Desktop\Encoding Sources\[BDMV] Takagi-San 3\TAKAGISAN3_1\BDMV\STREAM\00003.m2ts", bits=8)
 src = src.std.ShufflePlanes(0, vs.GRAY)
 # src = src.resize.Bicubic(format=vs.YUV444P8)
 

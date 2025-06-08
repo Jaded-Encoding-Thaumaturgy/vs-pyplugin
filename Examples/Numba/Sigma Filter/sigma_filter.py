@@ -3,7 +3,7 @@ from __future__ import annotations
 from math import ceil
 
 from numba import jit, prange  # type: ignore
-from stgfunc import source
+from vssource import source
 from vstools import erase_module, scale_value, set_output, vs
 
 from vspyplugin import PyPluginNumpy
@@ -57,7 +57,7 @@ def sigma_filter(clip: vs.VideoNode, radius: int = 3, thr: float = 0.01) -> vs.V
 # Taken from
 # https://github.com/WolframRhodium/muvsfunc/blob/master/Collections/examples/sigma_filter_numba.vpy
 
-src = source(r"E:\Desktop\Encoding Sources\[BDMV] Takagi-San 3\TAKAGISAN3_1\BDMV\STREAM\00003.m2ts", 8, matrix_prop=1)
+src = source(r"E:\Desktop\Encoding Sources\[BDMV] Takagi-San 3\TAKAGISAN3_1\BDMV\STREAM\00003.m2ts", bits=8)
 src = src.std.ShufflePlanes(0, vs.GRAY)
 # src = src.resize.Bicubic(format=vs.YUV444P8)
 
