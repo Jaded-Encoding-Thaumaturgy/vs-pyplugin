@@ -16,7 +16,7 @@ __all__ = [
 ]
 
 this_backend = PyBackend.NUMPY
-this_backend.set_dependencies({'numpy': '1.23.5'}, PyBackend.NONE)
+this_backend.set_dependencies({'numpy': '2.3.0'}, PyBackend.NONE)
 
 try:
     if PyBackend.is_cli:
@@ -29,8 +29,8 @@ try:
 
     import numpy as np
     from numpy import dtype
-    from numpy.core._multiarray_umath import asarray
-    from numpy.ctypeslib import _scalar_type_map  # type: ignore
+    from numpy._core._multiarray_umath import asarray
+    from numpy.ctypeslib import as_ctypes_type
     from numpy.typing import NDArray
 
     NDT_T = TypeVar('NDT_T', bound=NDArray[Any])
@@ -86,7 +86,7 @@ try:
         @classmethod
         @lru_cache
         def get_arr_ctype(cls, width: int, height: int, data_type: dtype[Any]) -> type[PointerType]:  # type: ignore
-            ctypes_type = _scalar_type_map[data_type.newbyteorder('=')]
+            ctypes_type = as_ctypes_type(data_type.newbyteorder('='))
 
             cast_type = POINTER(ctypes_type)
 
